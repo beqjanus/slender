@@ -1,10 +1,10 @@
 import bpy
-
+import bpy.utils
 
 class MakeLODModelsFromSelection(bpy.types.Operator):
-    bl_idname = "my_operator.make_lodmodels_from_selection"
+    bl_idname = "sltools.make_lodmodels_from_selection"
     bl_label = "Make LOD models From Selection"
-    bl_description = ""
+    bl_description = "create LOD models from the selected model"
     bl_options = {"REGISTER"}
 
     def getSLBaseName(self, objectName):
@@ -64,5 +64,6 @@ class MakeLODModelsFromSelection(bpy.types.Operator):
                 for i in context.scene.sl_lod.LOD_model_target:
                     # For every target LOD clone the src and relocate it to the correct layer
                     targetModel = self.createNewLODModel(source, self.getLODAsString(i))
-                    self.moveToLayers(targetModel, {int(i)})
+                    self.moveToLayers(targetModel, {int(i)})                    
         return {"FINISHED"}
+

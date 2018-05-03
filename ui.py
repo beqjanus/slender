@@ -1,80 +1,207 @@
-import math
+import traceback
 
 import bpy
-from mathutils import Vector
+import bpy.props
+import bpy.types
+from bpy.props import IntProperty, CollectionProperty  # , StringProperty
+from bpy.types import Panel, UIList
+
+from . import SL_utils as ut
 
 
-def area_of_circle(r):
-    return math.pi * r * r
+# return name of selected object
+def get_activeSceneObject():
+    return bpy.context.scene.objects.active.name
 
 
-def get_radius_of_object(object):
-    bb = object.bound_box
-    return (Vector(bb[6]) - Vector(bb[0])).length / 2.0
+# ui list item actions
+class LODMgr_actions(bpy.types.Operator):
+    bl_idname = "sltools_lodmgr.list_action"
+    bl_label = "List Action"
+
+    action = bpy.props.EnumProperty(
+        items=(
+            ('UP', "Up", ""),
+            ('DOWN', "Down", ""),
+            ('REMOVE', "Remove", ""),
+            ('ADD', "Add", ""),
+        )
+    )
+
+    def invoke(self, context, event):
+
+        scn = context.scene
+        idx = scn.sltools_lodmgr_index
+
+        try:
+            item = scn.sltools_lodmgr[idx]
+        except IndexError:
+            pass
+
+        else:
+            if self.action == 'DOWN' and idx < len(scn.sltools_lodmgr) - 1:
+                item_next = scn.sltools_lodmgr[idx + 1].name
+                scn.sltools_lodmgr.move(idx, idx + 1)
+                scn.sltools_lodmgr_index += 1
+                info = 'Item %d selected' % (scn.sltools_lodmgr_index + 1)
+                self.report({'INFO'}, info)
+
+            elif self.action == 'UP' and idx >= 1:
+                item_prev = scn.sltools_lodmgr[idx - 1].name
+                scn.sltools_lodmgr.move(idx, idx - 1)
+                scn.sltools_lodmgr_index -= 1
+                info = 'Item %d selected' % (scn.sltools_lodmgr_index + 1)
+                self.report({'INFO'}, info)
+
+            elif self.action == 'REMOVE':
+                info = 'Item %s removed from list' % (scn.sltools_lodmgr[scn.sltools_lodmgr_index].name)
+                scn.sltools_lodmgr_index -= 1
+                self.report({'INFO'}, info)
+                scn.sltools_lodmgr.remove(idx)
+
+        if self.action == 'ADD':
+            item = scn.sltools_lodmgr.add()
+            item.id = len(scn.sltools_lodmgr)
+            item.name = get_activeSceneObject()  # assign name of selected object
+            scn.sltools_lodmgr_index = (len(scn.sltools_lodmgr) - 1)
+            info = '%s added to list' % (item.name)
+            self.report({'INFO'}, info)
+
+        @classmethod
+        def register(cls):
+            pass
+
+        def unregister(cls):
+            pass
+
+        return {"FINISHED"}
 
 
-def area_of_circle_encompassing_square(squareSize):
-    return math.pi * math.pow(math.sqrt(math.pow((squareSize / 2), 2) * 2), 2)
+# -------------------------------------------------------------------
+# draw
+# -------------------------------------------------------------------
+
+# custom list
+class LODMgr_items(UIList):
+
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        split = layout.split(0.3)
+        split.label("Index: %d" % (index))
+        split.prop(item, "name", text="", emboss=False, translate=False, icon='BORDER_RECT')
+
+    def invoke(self, context, event):
+        pass
 
 
-#    return 102932
+# draw the panel
+class LODMgrPanel(Panel):
+    """Creates a Panel in the Object properties window"""
+    bl_idname = "manage_lod_models_panel"
+    bl_label = "Mange objects for lod models"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category = "SL"
 
-def get_sl_base_name(objectName):
-    return objectName.rsplit('_', 1)[0]
+    # bl_idname = 'OBJECT_PT_my_panel'
+    # bl_space_type = "TEXT_EDITOR"
+    # bl_region_type = "UI"
+    # bl_label = "Custom Object List"
 
+    def draw(self, context):
+        layout = self.layout
+        scn = bpy.context.scene
 
-def has_lod_models(object):
-    return has_lod_model(object, 'HIGH')
+        rows = 2
+        row = layout.row()
+        row.template_list("LODMgr_items", "", scn, "sltools_lodmgr", scn, "sltools_lodmgr_index", rows=rows)
 
+        col = row.column(align=True)
+        col.operator("sltools_lodmgr.list_action", icon='ZOOMIN', text="").action = 'ADD'
+        col.operator("sltools_lodmgr.list_action", icon='ZOOMOUT', text="").action = 'REMOVE'
+        col.separator()
+        col.operator("sltools_lodmgr.list_action", icon='TRIA_UP', text="").action = 'UP'
+        col.operator("sltools_lodmgr.list_action", icon='TRIA_DOWN', text="").action = 'DOWN'
 
-def has_lod_model(object, LOD):
-    if bpy.data.objects.get(get_sl_base_name(object.name) + '_' + LOD) is not None:
-        #        print("LOD %s found"%(LOD))
-        return True
-    return False
-
-
-def clamp(value, minval, maxval):
-    return max(minval, min(maxval, value))
-
-
-def getLODRadii(object):
-    max_distance = 512.0
-    radius = get_radius_of_object(object)
-    dlowest = min(radius / 0.03, max_distance)
-    dlow = min(radius / 0.06, max_distance)
-    dmid = min(radius / 0.24, max_distance)
-    return (radius, dmid, dlow, dlowest)
-
-
-def dump(obj):
-    for attr in dir(obj):
-        if hasattr(obj, attr):
-            print("[%s] obj.%s = %s" % (type(getattr(obj, attr)), attr, getattr(obj, attr)))
-
-
-def target_getter(self):
-    print("value of %s is %s" % (self, self.target_value))
-    return self.target_value
+        row = layout.row()
+        col = row.column(align=True)
+        col.operator("sltools_lodmgr.print_list", icon="WORDWRAP_ON")
+        col.operator("sltools_lodmgr.select_item", icon="UV_SYNC_SELECT")
+        col.operator("sltools_lodmgr.clear_list", icon="X")
 
 
-def target_setter(self, value):
-    print("setting value to %d ^ %d = %d" % (self.target_value, self.target_value ^ value, value))
-    if (value & self.src_value):
-        value ^= self.src_value
-    self.target_value = value
+# print button
+class LODMgr_printAllItems(bpy.types.Operator):
+    bl_idname = "sltools_lodmgr.print_list"
+    bl_label = "Print List"
+    bl_description = "Print all items to the console"
+
+    def execute(self, context):
+        scn = context.scene
+        for i in scn.sltools_lodmgr:
+            print(i.name, i.id)
+        return {'FINISHED'}
 
 
-def source_getter(self):
-    #    print("value is %s" % (self['value']))
-    return self.src_value
+# select button
+class LODMgr_selectAllItems(bpy.types.Operator):
+    bl_idname = "sltools_lodmgr.select_item"
+    bl_label = "Select List Item"
+    bl_description = "Select Item in scene"
+
+    def execute(self, context):
+        scn = context.scene
+        bpy.ops.object.select_all(action='DESELECT')
+        obj = bpy.data.objects[scn.sltools_lodmgr[scn.sltools_lodmgr_index].name]
+        obj.select = True
+
+        return {'FINISHED'}
 
 
-def source_setter(self, value):
-    #    print("setting value to %d ^ %d = %d" % (self['value'], self['value'] ^ value, value))
-    self.src_value = value
-    if (value & self.target_value):
-        self.target_value ^= value
+# clear button
+class LODMgr_clearAllItems(bpy.types.Operator):
+    bl_idname = "sltools_lodmgr.clear_list"
+    bl_label = "Clear List"
+    bl_description = "Clear all items in the list"
+
+    def execute(self, context):
+        scn = context.scene
+        lst = scn.sltools_lodmgr
+        current_index = scn.sltools_lodmgr_index
+
+        if len(lst) > 0:
+            # reverse range to remove last item first
+            for i in range(len(lst) - 1, -1, -1):
+                scn.sltools_lodmgr.remove(i)
+            self.report({'INFO'}, "All items removed")
+
+        else:
+            self.report({'INFO'}, "Nothing to remove")
+
+        return {'FINISHED'}
+
+
+# Create custom property group
+class LODMgrProp(bpy.types.PropertyGroup):
+    '''name = StringProperty() '''
+    id = IntProperty()
+
+    @classmethod
+    def register(cls):
+        #        bpy.utils.register_module(__name__)
+        bpy.types.Scene.sltools_lodmgr = CollectionProperty(type=LODMgrProp)
+        bpy.types.Scene.sltools_lodmgr_index = IntProperty()
+
+    @classmethod
+    def unregister(cls):
+        #        bpy.utils.unregister_module(__name__)
+        del bpy.types.Scene.sltools_lodmgr
+        del bpy.types.Scene.sltools_lodmgr_index
+
+
+# if __name__ == "__main__":
+#     register()
+
+
 
 
 class lod_model_properties(bpy.types.PropertyGroup):
@@ -83,39 +210,52 @@ class lod_model_properties(bpy.types.PropertyGroup):
     target_value = bpy.props.IntProperty(name='target_bit_mask', default=30)
 
     MaxArea = bpy.props.FloatProperty(name='Maximum Area for mesh calculation',
-                                      default=area_of_circle_encompassing_square(256))
+                                      default=ut.area_of_circle_encompassing_square(256))
     MinArea = bpy.props.FloatProperty('Minimum Area for mesh calculation', default=1.0)
     MeshTriangleBudget = bpy.props.IntProperty(default=250000)
 
     enum_items = (
         ('0', 'Hi', '', 1), ('1', 'Med', '', 2), ('2', 'Low', '', 4), ('3', 'Lowest', '', 8), ('4', 'Phys', '', 16))
+
     LOD_model_source = bpy.props.EnumProperty(
         name="LOD Model Source",
         description="use the selected object as the source",
         items=enum_items,
-        get=source_getter,
-        set=source_setter
-    )
+        get=ut.source_getter,
+        set=ut.source_setter)
     LOD_model_target = bpy.props.EnumProperty(
         name="LOD Models required",
         description="LOD Models to be generated",
         items=enum_items,
         options={"ENUM_FLAG"},
-        #            update = updTarget,
-        get=target_getter,
-        set=target_setter
-    )
+        get=ut.target_getter,
+        set=ut.target_setter)
 
-    def updTarget(self, context):
-        dump(self)
-        if (self.LOD_model_source in self.LOD_model_target):
-            print("removing self.LOD_model_source")
-            myLOD = self.LOD_model_target
-            myLOD.remove(self.LOD_model_source)
-            dump(myLOD)
-            self.LOD_model_target.remove(self.LOD_model_source)
-            dump(self)
+    @classmethod
+    def register(cls):
+        print("Registered class: %s" % (cls))
 
+    # def updTarget(self, context):
+    #     dump(self)
+    #     if (self.LOD_model_source in self.LOD_model_target):
+    #         print("removing self.LOD_model_source")
+    #         myLOD = self.LOD_model_target
+    #         myLOD.remove(self.LOD_model_source)
+    #         dump(myLOD)
+    #         self.LOD_model_target.remove(self.LOD_model_source)
+    #         dump(self)
+
+
+try:
+    bpy.utils.register_class(lod_model_properties)
+    bpy.utils.register_class(LODMgr_actions)
+except:
+    traceback.print_exc()
+
+bpy.types.Scene.sl_lod = bpy.props.PointerProperty(
+    name="SL helper settings",
+    description="settings class for the SL helper addon",
+    type=lod_model_properties)
 
 # context.scene.sl_lod.LOD_model_target(self)
 
@@ -124,11 +264,11 @@ class CreateLODModelsPanel(bpy.types.Panel):
     bl_label = "Create Lod Models Panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
-    bl_category = "SecondLife"
+    bl_category = "SL"
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("my_operator.make_lodmodels_from_selection")
+        layout.operator("sltools_make_lodmodels_from_selection")
         layout.label("Use selected model as...")
         layout.prop(bpy.context.scene.sl_lod, 'LOD_model_source', expand=True)
         layout.label("Create LOD (shift click multi)")
@@ -152,14 +292,15 @@ def GetTrianglesForLOD(object, previousLOD):
 
 
 def GetTrianglesForModel(object):
-    basename = get_sl_base_name(object.name)
+    basename = ut.get_sl_base_name(object.name)
     # no basename found. This is not a valid SL tracked model
     if (basename == ''):
         return {0, 0, 0, 0}
-    highName = basename + '_' + 'HIGH'
-    midName = basename + '_' + 'MED'
-    lowName = basename + '_' + 'LOW'
-    lowestName = basename + '_' + 'LOWEST'
+    #    highName = basename + 'HIGH'
+    highName = basename + '_' + 'LOD0'
+    midName = basename + '_' + 'LOD1'
+    lowName = basename + '_' + 'LOD2'
+    lowestName = basename + '_' + 'LOD3'
 
     tris_high = GetTrianglesForLOD(bpy.data.objects.get(highName), 0)
     if tris_high > 0:
@@ -173,24 +314,24 @@ def GetTrianglesForModel(object):
 
 
 def getWeights(object):
-    (radius, LODSwitchMed, LODSwitchLow, LODSwitchLowest) = getLODRadii(object)
+    (radius, LODSwitchMed, LODSwitchLow, LODSwitchLowest) = ut.getLODRadii(object)
 
     MaxArea = bpy.context.scene.sl_lod.MaxArea
     MinArea = bpy.context.scene.sl_lod.MinArea
 
-    highArea = clamp(area_of_circle(LODSwitchMed), MinArea, MaxArea)
-    midArea = clamp(area_of_circle(LODSwitchLow), MinArea, MaxArea)
-    lowArea = clamp(area_of_circle(LODSwitchLowest), MinArea, MaxArea)
+    highArea = ut.clamp(ut.area_of_circle(LODSwitchMed), MinArea, MaxArea)
+    midArea = ut.clamp(ut.area_of_circle(LODSwitchLow), MinArea, MaxArea)
+    lowArea = ut.clamp(ut.area_of_circle(LODSwitchLowest), MinArea, MaxArea)
     lowestArea = MaxArea
 
     lowestArea -= lowArea
     lowArea -= midArea
     midArea -= highArea
 
-    highArea = clamp(highArea, MinArea, MaxArea)
-    midArea = clamp(midArea, MinArea, MaxArea)
-    lowArea = clamp(lowArea, MinArea, MaxArea)
-    lowestArea = clamp(lowestArea, MinArea, MaxArea)
+    highArea = ut.clamp(highArea, MinArea, MaxArea)
+    midArea = ut.clamp(midArea, MinArea, MaxArea)
+    lowArea = ut.clamp(lowArea, MinArea, MaxArea)
+    lowestArea = ut.clamp(lowestArea, MinArea, MaxArea)
 
     totalArea = highArea + midArea + lowArea + lowestArea
 
@@ -206,7 +347,7 @@ class SLMeshUploadEstimate(bpy.types.Panel):
     bl_label = "SL Mesh Upload Estimate"
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
-    bl_category = "SecondLife"
+    bl_category = "SL"
 
     #    def draw_header(self, context):
     #        util.draw_info_header(self.layout, '', msg=panel_estimate_slupload)
@@ -221,7 +362,7 @@ class SLMeshUploadEstimate(bpy.types.Panel):
                 row.label(text="Too many objects selected", icon='INFO')
                 return
             object = context.selected_objects[0]
-            if has_lod_models(object) == 0:
+            if ut.has_lod_models(object) == 0:
                 row = layout.row()
                 row.label(text="No SL Mesh Selected", icon='INFO')
                 return
@@ -233,32 +374,39 @@ class SLMeshUploadEstimate(bpy.types.Panel):
         col = b.column(align=True)
 
         row = col.row(align=True)
-        row.label(get_sl_base_name(object.name))
+        row.label(ut.get_sl_base_name(object.name))
 
         row = col.row(align=True)
         row.label("Scale:")
         row = col.row(align=True)
         row.label("%0.3f x %0.3f x %0.3f" % (object.dimensions.x, object.dimensions.y, object.dimensions.z,))
         row = col.row(align=True)
-        row.label("Radius: %0.3f" % (get_radius_of_object(object)))
+        row.label("Radius: %0.3f" % (ut.get_radius_of_object(object)))
 
         row = col.row(align=True)
         row.label("LOD")
         row.label("Tris")
+        row.label("Radius")
         row.label("Weight")
         row.label("Cost")
         #        (hi_tris, mid_tris, low_tris, lowest_tris)= GetTrianglesForModel(object)
         labels = ('High', 'Medium', 'Low', 'Lowest')
         triangles = GetTrianglesForModel(object)
         weights = getWeights(object)
-
-        for i in range(0, 3):
+        radii = ut.getLODRadii(object)
+        weighted_avg = 0
+        for i in range(0, 4):
             row = col.row(align=True)
             row.label(labels[i])
             row.label("%d" % triangles[i])
+            if (i > 0):
+                row.label("%d" % int(radii[i]))
+            else:
+                row.label("")
             row.label("%f" % weights[i])
             row.label("%f" % (triangles[i] * weights[i] * 3.0 / 50.0))
-
+            weighted_avg += triangles[i] * weights[i] 
+         
 
 # row = col.row(align=True)
 #        row.label("Medium")
@@ -282,18 +430,74 @@ class SLMeshUploadEstimate(bpy.types.Panel):
 
 #        weightedAverage =   hi_tris*highAreaRatio + mid_tris*midAreaRatio + low_tris*lowAreaRatio + lowest_tris*lowestAreaRatio
 
-#        streamingCost = weightedAverage/context.scene.sl_lod.MeshTriangleBudget*15000  
+        streamingCost = weighted_avg / context.scene.sl_lod.MeshTriangleBudget * 15000
 
-#        row = col.row(align=True)
-#        row.label("Stream")
-#        row.label("%f"%(streamingCost))
+        row = col.row(align=True)
+        row.label("Streaming Cost")
+        row.label("%f" % (streamingCost))
 
 
-try:
-    bpy.utils.register_class(lod_model_properties)
-except:
-    traceback.print_exc()
+class SLMeshMaterialsInfo(bpy.types.Panel):
+    bl_idname = "slmesh_materials_info"
+    bl_label = "Slmesh Materials Info"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category = "SL"
 
-bpy.types.Scene.sl_lod = bpy.props.PointerProperty(
-    name="SL helper settings",
-    description="settings class for the SL helper addon")
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+
+        try:
+            if len(context.selected_objects) > 1:
+                row = layout.row()
+                row.label(text="Too many objects selected", icon='INFO')
+                return
+            object = context.selected_objects[0]
+            if ut.has_lod_models(object) == 0:
+                row = layout.row()
+                row.label(text="No SL Mesh Selected", icon='INFO')
+                return
+        except (TypeError, AttributeError):
+            return
+
+        mat_info = ut.getMaterialCounts(object)
+
+        b = layout.box()
+        b.label(text="Material Info", icon='OBJECT_DATAMODE')
+        col = b.column(align=True)
+
+        row = col.row(align=True)
+        row.label(ut.get_sl_base_name(object.name))
+
+        row = col.row(align=True)
+        row.label("Total Materials used: %d" % (len(mat_info)))
+        row = col.row(align=True)
+        split = row.split(0.4)
+        matcol = split.column()
+        matcol.label("Mat", icon='NONE')
+        r = split.split()
+        H = r.column()
+        H.row().label("H")
+        M = r.column()
+        M.row().label("M")
+        L = r.column()
+        L.row().label("L")
+        I = r.column()
+        I.row().label("I")
+        row = col.row()
+        #        (hi_tris, mid_tris, low_tris, lowest_tris)= GetTrianglesForModel(object)
+        labels = ('LOD0', 'LOD1', 'LOD2', 'LOD3')
+        for mat in (mat_info):
+            #            matrow = col.row()
+            #            c=matrow.split(0.3)
+            matcol.row().label("%s" % (mat_info[mat]['name']), icon='NONE')
+            #            c=split.split()
+            for (col, LOD) in zip((H, M, L, I), labels):
+                try:
+                    col.label("%d" % mat_info[mat][LOD])
+                except:
+                    if (ut.has_lod_model(object, LOD) == False):
+                        col.label("-")
+                    else:
+                        col.label(icon='ERROR')
