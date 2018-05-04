@@ -17,7 +17,6 @@ Created by Beq Janus
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-
 bl_info = {
     "name": "Second Life Mesh Tools",
     "description": "A series of helper tools to aid mesh developement in Second Life",
@@ -34,9 +33,9 @@ import importlib
 
 import bpy
 
-from . import developer_utils
+from . import developer_utils as du
 
-importlib.reload(developer_utils)
+importlib.reload(du)
 
 # register
 ##################################
@@ -50,21 +49,37 @@ import inspect
 def register():
     #    try: bpy.utils.register_module(__name__)
     #    except: traceback.print_exc()
-    modules = developer_utils.setup_addon_modules(__path__, __name__, "bpy" in locals())
+    modules = du.setup_addon_modules(__path__, __name__, "bpy" in locals())
+    num_operators = 0
+    num_panels = 0
     for module in modules:
         print("Registering %s" % (module.__name__))
         #    for name, obj in inspect.getmembers(sys.modules[__name__]):
         for name, obj in inspect.getmembers(module):
             if inspect.isclass(obj):
-                print("Registering class: %s" % (name))
-                try:
-                    bpy.utils.register_class(obj)
-                except Exception as e:
-                    print("Failed to register class %s : %s" % (name, e))
-                    traceback.print_exc()
+                class_type = None
+                if du.is_class_an_operator(obj):
+                    num_operators += 1
+                    class_type = "operator"
+                if du.is_class_a_panel(obj):
+                    num_panels += 1
+                    class_type = "panel"
+                if class_type is not None:
+                    print("Registering class as %s: %s" % (class_type, name))
+                    try:
+                        bpy.utils.register_class(obj)
+                    except Exception as e:
+                        print("Failed to register class %s : %s" % (name, e))
+                        traceback.print_exc()
+                        if class_type == "panel":
+                            num_panels -= 1
+                        else:
+                            num_operators -= 1
     #    try:bpy.utils.register_class(LODModelProperties)
     #    except: traceback.print_exc()
-    print("Registered {} with {} modules".format(bl_info["name"], len(modules)))
+    print(
+        "Registered {} with {} modules {} operators and {} panels".format(bl_info["name"], len(modules), num_operators,
+                                                                          num_panels))
 
 
 # implict de-registration

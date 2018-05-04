@@ -1,201 +1,15 @@
-import traceback
-
 import bpy
 import bpy.props
 import bpy.types
-from bpy.props import IntProperty, CollectionProperty  # , StringProperty
-from bpy.types import Panel, UIList
 
 from . import SL_utils as ut
-
-
-# return name of selected object
-def get_activeSceneObject():
-    return bpy.context.scene.objects.active.name
-
-
-# ui list item actions
-class LODMgr_actions(bpy.types.Operator):
-    bl_idname = "sltools_lodmgr.list_action"
-    bl_label = "List Action"
-
-    action = bpy.props.EnumProperty(
-        items=(
-            ('UP', "Up", ""),
-            ('DOWN', "Down", ""),
-            ('REMOVE', "Remove", ""),
-            ('ADD', "Add", ""),
-        )
-    )
-
-    def invoke(self, context, event):
-
-        scn = context.scene
-        idx = scn.sltools_lodmgr_index
-
-        try:
-            item = scn.sltools_lodmgr[idx]
-        except IndexError:
-            pass
-
-        else:
-            if self.action == 'DOWN' and idx < len(scn.sltools_lodmgr) - 1:
-                item_next = scn.sltools_lodmgr[idx + 1].name
-                scn.sltools_lodmgr.move(idx, idx + 1)
-                scn.sltools_lodmgr_index += 1
-                info = 'Item %d selected' % (scn.sltools_lodmgr_index + 1)
-                self.report({'INFO'}, info)
-
-            elif self.action == 'UP' and idx >= 1:
-                item_prev = scn.sltools_lodmgr[idx - 1].name
-                scn.sltools_lodmgr.move(idx, idx - 1)
-                scn.sltools_lodmgr_index -= 1
-                info = 'Item %d selected' % (scn.sltools_lodmgr_index + 1)
-                self.report({'INFO'}, info)
-
-            elif self.action == 'REMOVE':
-                info = 'Item %s removed from list' % (scn.sltools_lodmgr[scn.sltools_lodmgr_index].name)
-                scn.sltools_lodmgr_index -= 1
-                self.report({'INFO'}, info)
-                scn.sltools_lodmgr.remove(idx)
-
-        if self.action == 'ADD':
-            item = scn.sltools_lodmgr.add()
-            item.id = len(scn.sltools_lodmgr)
-            item.name = get_activeSceneObject()  # assign name of selected object
-            scn.sltools_lodmgr_index = (len(scn.sltools_lodmgr) - 1)
-            info = '%s added to list' % (item.name)
-            self.report({'INFO'}, info)
-
-        @classmethod
-        def register(cls):
-            pass
-
-        def unregister(cls):
-            pass
-
-        return {"FINISHED"}
 
 
 # -------------------------------------------------------------------
 # draw
 # -------------------------------------------------------------------
 
-# custom list
-class LODMgr_items(UIList):
 
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        split = layout.split(0.3)
-        split.label("Index: %d" % (index))
-        split.prop(item, "name", text="", emboss=False, translate=False, icon='BORDER_RECT')
-
-    def invoke(self, context, event):
-        pass
-
-
-# draw the panel
-class LODMgrPanel(Panel):
-    """Creates a Panel in the Object properties window"""
-    bl_idname = "manage_lod_models_panel"
-    bl_label = "Mange objects for lod models"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "TOOLS"
-    bl_category = "SL"
-
-    # bl_idname = 'OBJECT_PT_my_panel'
-    # bl_space_type = "TEXT_EDITOR"
-    # bl_region_type = "UI"
-    # bl_label = "Custom Object List"
-
-    def draw(self, context):
-        layout = self.layout
-        scn = bpy.context.scene
-
-        rows = 2
-        row = layout.row()
-        row.template_list("LODMgr_items", "", scn, "sltools_lodmgr", scn, "sltools_lodmgr_index", rows=rows)
-
-        col = row.column(align=True)
-        col.operator("sltools_lodmgr.list_action", icon='ZOOMIN', text="").action = 'ADD'
-        col.operator("sltools_lodmgr.list_action", icon='ZOOMOUT', text="").action = 'REMOVE'
-        col.separator()
-        col.operator("sltools_lodmgr.list_action", icon='TRIA_UP', text="").action = 'UP'
-        col.operator("sltools_lodmgr.list_action", icon='TRIA_DOWN', text="").action = 'DOWN'
-
-        row = layout.row()
-        col = row.column(align=True)
-        col.operator("sltools_lodmgr.print_list", icon="WORDWRAP_ON")
-        col.operator("sltools_lodmgr.select_item", icon="UV_SYNC_SELECT")
-        col.operator("sltools_lodmgr.clear_list", icon="X")
-
-
-# print button
-class LODMgr_printAllItems(bpy.types.Operator):
-    bl_idname = "sltools_lodmgr.print_list"
-    bl_label = "Print List"
-    bl_description = "Print all items to the console"
-
-    def execute(self, context):
-        scn = context.scene
-        for i in scn.sltools_lodmgr:
-            print(i.name, i.id)
-        return {'FINISHED'}
-
-
-# select button
-class LODMgr_selectAllItems(bpy.types.Operator):
-    bl_idname = "sltools_lodmgr.select_item"
-    bl_label = "Select List Item"
-    bl_description = "Select Item in scene"
-
-    def execute(self, context):
-        scn = context.scene
-        bpy.ops.object.select_all(action='DESELECT')
-        obj = bpy.data.objects[scn.sltools_lodmgr[scn.sltools_lodmgr_index].name]
-        obj.select = True
-
-        return {'FINISHED'}
-
-
-# clear button
-class LODMgr_clearAllItems(bpy.types.Operator):
-    bl_idname = "sltools_lodmgr.clear_list"
-    bl_label = "Clear List"
-    bl_description = "Clear all items in the list"
-
-    def execute(self, context):
-        scn = context.scene
-        lst = scn.sltools_lodmgr
-        current_index = scn.sltools_lodmgr_index
-
-        if len(lst) > 0:
-            # reverse range to remove last item first
-            for i in range(len(lst) - 1, -1, -1):
-                scn.sltools_lodmgr.remove(i)
-            self.report({'INFO'}, "All items removed")
-
-        else:
-            self.report({'INFO'}, "Nothing to remove")
-
-        return {'FINISHED'}
-
-
-# Create custom property group
-class LODMgrProp(bpy.types.PropertyGroup):
-    '''name = StringProperty() '''
-    id = IntProperty()
-
-    @classmethod
-    def register(cls):
-        #        bpy.utils.register_module(__name__)
-        bpy.types.Scene.sltools_lodmgr = CollectionProperty(type=LODMgrProp)
-        bpy.types.Scene.sltools_lodmgr_index = IntProperty()
-
-    @classmethod
-    def unregister(cls):
-        #        bpy.utils.unregister_module(__name__)
-        del bpy.types.Scene.sltools_lodmgr
-        del bpy.types.Scene.sltools_lodmgr_index
 
 
 # if __name__ == "__main__":
@@ -234,6 +48,10 @@ class lod_model_properties(bpy.types.PropertyGroup):
     @classmethod
     def register(cls):
         print("Registered class: %s" % (cls))
+        bpy.types.Scene.sl_lod = bpy.props.PointerProperty(
+            name="SL helper settings",
+            description="settings class for the SL helper addon",
+            type=lod_model_properties)
 
     # def updTarget(self, context):
     #     dump(self)
@@ -246,16 +64,6 @@ class lod_model_properties(bpy.types.PropertyGroup):
     #         dump(self)
 
 
-try:
-    bpy.utils.register_class(lod_model_properties)
-    bpy.utils.register_class(LODMgr_actions)
-except:
-    traceback.print_exc()
-
-bpy.types.Scene.sl_lod = bpy.props.PointerProperty(
-    name="SL helper settings",
-    description="settings class for the SL helper addon",
-    type=lod_model_properties)
 
 # context.scene.sl_lod.LOD_model_target(self)
 
@@ -268,7 +76,7 @@ class CreateLODModelsPanel(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("sltools_make_lodmodels_from_selection")
+        layout.operator("sltools.make_lodmodels_from_selection")
         layout.label("Use selected model as...")
         layout.prop(bpy.context.scene.sl_lod, 'LOD_model_source', expand=True)
         layout.label("Create LOD (shift click multi)")

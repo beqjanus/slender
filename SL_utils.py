@@ -8,6 +8,10 @@ import bpy
 from mathutils import Vector
 
 
+# return name of selected object
+def get_active_scene_object():
+    return bpy.context.scene.objects.active.name
+
 def area_of_circle(r):
     return math.pi * r * r
 

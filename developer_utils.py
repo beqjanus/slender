@@ -2,6 +2,8 @@ import importlib
 import os
 import pkgutil
 
+import bpy
+
 
 def setup_addon_modules(path, package_name, reload):
     """
@@ -41,3 +43,11 @@ def setup_addon_modules(path, package_name, reload):
     if reload:
         reload_modules(modules)
     return modules
+
+
+def is_class_an_operator(cls):
+    return issubclass(cls, bpy.types.Operator)
+
+
+def is_class_a_panel(cls):
+    return issubclass(cls, bpy.types.Panel)
