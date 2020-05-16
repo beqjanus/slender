@@ -33,6 +33,14 @@ def show_collection(collection_name, show=True):
         collection.hide_viewport = not show
         bpy.context.window.view_layer.layer_collection.children['SLender'].children[collection_name].hide_viewport= not show
 
+def is_collection_visible(collection_name):
+    collection = bpy.data.collections[collection_name]
+    if collection is not None:
+        if(collection.hide_viewport == True):
+            return False
+        return not bpy.context.window.view_layer.layer_collection.children['SLender'].children[collection_name].hide_viewport
+
+
 def find_collection_for_object(item):
     collections = item.users_collection
     if len(collections) > 0:

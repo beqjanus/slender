@@ -28,7 +28,7 @@ from . import SL_vars
 
 def check_name_and_reset(ob):
     if(ob.name !=  ob.data.name):
-            print("renaming"+ob.data.name+" to "+ ob.name)
+#            print("renaming"+ob.data.name+" to "+ ob.name)
             ob.data.name = ob.name
 
 def rename_object_fully(ob, new_name):
@@ -135,6 +135,17 @@ def has_lod_model(item, LOD):
         if cu.is_in_collection(bpy.data.objects[this_lod], get_collection_name_for_LOD(LOD)):
             return True
     return False
+
+'''
+Given an object, return the model in the given LOD
+- will strip down to basename then add the LOD extenstion before checkinbg the existnece of the target object and it's presence in the right collection
+'''
+def get_lod_model(item, LOD):
+    this_lod = get_sl_LOD_name(item.name, LOD)
+    if object_exists(this_lod):
+        if cu.is_in_collection(bpy.data.objects[this_lod], get_collection_name_for_LOD(LOD)):
+            return this_lod
+    return None
 
 '''
 Given an object, return a list of the LOD models we are tracking for it.
@@ -261,9 +272,9 @@ def getMaterialCounts(SLMeshObject):
     #    print(mat_list)
     return mat_list
 
-def common_LOD_to_SL(internal_LOD):
-    LODS={'high':'LOD3', 'med':'LOD2', 'low':'LOD1', 'imp':'LOD0', 'PHYS':'PHYS'}
-    return LODS[internal_LOD]
+def common_LOD_to_SL(common_LOD):
+    LODS={'high':'LOD3', 'med':'LOD2', 'low':'LOD1', 'imp':'LOD0', 'PHYS':'PHYS', 'lowest':'LOD0'}
+    return LODS[common_LOD]
 
 def get_collection_name_for_LOD(lod):
     prefs = get_addon_preferences()
@@ -271,6 +282,8 @@ def get_collection_name_for_LOD(lod):
 
 def get_suffix_for_LOD(lod):
     prefs = get_addon_preferences()
+    if lod == "" or lod == "LOD3":
+        return ""
     return getattr(prefs, '%s_suffix' %lod)
 
 '''

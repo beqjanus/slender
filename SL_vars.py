@@ -1,5 +1,5 @@
 import bpy
-from bpy.props import IntProperty, CollectionProperty, StringProperty, BoolProperty
+from bpy.props import BoolProperty, CollectionProperty, EnumProperty, IntProperty, StringProperty
 from bpy.types import PropertyGroup
 from . import SL_utils as ut
 
@@ -19,6 +19,28 @@ class SLENDER_SceneVars(bpy.types.PropertyGroup):
         maxlen=1024,
         subtype="DIR_PATH"
     )
+    export_format: EnumProperty(
+        name="Format",
+        description="Format type to export to",
+        items=(
+            ('DAE', "DAE", ""),
+            ('SLM', "SLM", ""),
+        ),
+        default='DAE',
+    )
+    use_export_texture: BoolProperty(
+        name="Copy Textures",
+        description="Copy textures on export to the output path",
+        default=False,
+    )
+    use_apply_scale: BoolProperty(
+        name="Apply Scale",
+        description="Apply scene scale setting on export",
+        default=False,
+    )
+
+
+
     # This is how you make a static enum prop for the scene
     src_value : bpy.props.IntProperty(name='source bit mask', default=1)
     target_value : bpy.props.IntProperty(name='target_bit_mask', default=30)

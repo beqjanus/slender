@@ -63,44 +63,74 @@ def check_slender_in_scene():
         activate_slender_for_scene()
     return ut.get_var('active')
 
+def write_to_collada(file, LOD):
+    bpy.ops.wm.collada_export(
+    filepath="{}{}".format(str(file), str(ut.get_suffix_for_LOD(LOD))),
+    check_existing=True,
+    filemode=8,
+    display_type='DEFAULT',
+    sort_method='FILE_SORT_ALPHA',
+    apply_modifiers=True,
+    export_mesh_type=0,
+    export_mesh_type_selection='view',
+    selected=True,
+    include_children=True,
+    include_armatures=True,
+    include_shapekeys=False,
+    deform_bones_only=False,
+    include_animations=True,
+    sampling_rate=10,
+    active_uv_only=False,
+    use_texture_copies=True,
+    triangulate=True,
+    use_object_instantiation=True,
+    use_blender_profile=True,
+    sort_by_name=False,
+    open_sim=True,
+    limit_precision=True,
+    keep_bind_info=False,
+)
 
-class SLENDER_OT_ExportCollada(bpy.types.Operator):
-    bl_idname = "slender.export_collada"
-    bl_label = "SLENDER_OT_ExportCollada"
+def prep_and_export_LOD(export_file, LOD):
+    bpy.ops.object.select_all(action='DESELECT')
+    coll_name = ut.get_collection_name_for_LOD(LOD)
+    vp_showing = cu.is_collection_visible(coll_name)
+    cu.show_collection(coll_name, show=True)
+    bpy.data.collections[coll_name].hide_viewport = False
+    for obj in bpy.data.collections[coll_name].objects:
+        lod_obj = ut.get_lod_model(obj,LOD)
+        if lod_obj is not None:
+            ut.check_name_and_reset(lod_obj)
+            if(lod_obj.hide_get()):
+                lod_obj.hide_set(False)
+            lod_obj.select_set(True) # select these ones.
+    write_to_collada(export_file, LOD)
+    cu.show_collection(coll_name, show=vp_showing)
+
+
+class SLENDER_OT_Export(bpy.types.Operator):
+    bl_idname = "slender.export"
+    bl_label = "SLENDER_OT_Export"
 
     def execute(self, context):
         vars=ut.get_addon_scene_vars()
-        bpy.ops.wm.collada_export(
-            filepath="%s" % str(ut.get_var("export_path")),
-            check_existing=True,
-            filemode=8,
-            display_type='DEFAULT',
-            sort_method='FILE_SORT_ALPHA',
-            apply_modifiers=True,
-            export_mesh_type=0,
-            export_mesh_type_selection='view',
-            selected=True,
-            include_children=True,
-            include_armatures=True,
-            include_shapekeys=False,
-            deform_bones_only=False,
-            include_animations=True,
-            sample_animations=True,
-            sampling_rate=10,
-            active_uv_only=False,
-            use_texture_copies=True,
-            triangulate=False,
-            use_object_instantiation=True,
-            use_blender_profile=True,
-            sort_by_name=False,
-            export_transformation_type=0,
-            export_transformation_type_selection='matrix',
-            export_texture_type=0,
-            export_texture_type_selection='mat',
-            open_sim=False,
-            limit_precision=True,
-            keep_bind_info=False,
-        )
+        selected = bpy.context.selected_objects
+        # deselect all meshes
+        export_file = "{}/{}".format(ut.get_var("export_path"), "slender_export")
+
+        # bpy.ops.object.select_all(action='DESELECT')
+        # for obj in bpy.data.collections['HighLOD'].objects:
+        #     obj.select_set(True) # select these ones.
+        # write_to_collada(export_file, "")
+
+        prep_and_export_LOD(export_file, "LOD3")
+        prep_and_export_LOD(export_file, "LOD2")
+        prep_and_export_LOD(export_file, "LOD1")
+        prep_and_export_LOD(export_file, "LOD0")
+        prep_and_export_LOD(export_file, "PHYS")
+        # restore selection
+        for obj in selected:
+            obj.select_set(True)
         return {'FINISHED'}
 
 
@@ -142,7 +172,7 @@ class SLENDER_PT_collada_export(Panel):
         col.prop(vars, "use_export_texture")
 
         layout.prop(vars, "export_format")
-        layout.operator("collada_export", text="Export", icon='EXPORT')
+        layout.operator("slender.export", text="Export", icon='EXPORT')
 
 class SLENDER_PT_status_panel(bpy.types.Panel):
     if bpy.app.version < (2,80,0):
