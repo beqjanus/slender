@@ -5,7 +5,7 @@ import bpy.types
 from . import SL_utils as ut
 from . import Collection_utils as cu
 '''
-Copyright (C) 2018,2019 Beq Janus
+Copyright (C) 2018,2019,2020,2021 Beq Janus
 
 
 Created by Beq Janus (beqjanus@gmail.com)
@@ -175,19 +175,30 @@ class SLENDER_OT_remove_doubles(bpy.types.Operator):
     def execute(self, context):
         bpy.ops.mesh.remove_doubles();
         return {'FINISHED'}
+class SLENDER_OT_check_names(bpy.types.Operator):
+    bl_idname = "slender.check_names"
+    bl_label = "Fix mesh name"
+    bl_description = "renames underlying mesh(es) to match the selected object(s) if needed"
+    bl_options = {"REGISTER"}    
+
+    def execute(self, context):
+        for obj in bpy.context.selected_objects:
+            ut.check_name_and_reset(obj)
+        return {'FINISHED'}
 
 class SLENDER_PT_create_lod_models_panel(bpy.types.Panel):
-    if bpy.app.version < (2,80,0):
-        Region = "TOOLS"
-    else:
-        Region = "UI"
+    Region = "UI"
     bl_idname = "SLENDER_PT_create_lod_models_panel"
     bl_label = "Create Lod Models Panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
     bl_category = "SL"
+    bl_order = 20
     @classmethod
     def poll(cls, context):
+        if not ut.slender_activated():
+            return False
+
         objs = context.selected_objects
         if len(objs) >0 and all(obj.type == 'MESH' for obj in objs):
             return True
@@ -214,10 +225,7 @@ class SLENDER_PT_create_lod_models_panel(bpy.types.Panel):
         pass
 
 class SLENDER_PT_clean_up_tools_panel(bpy.types.Panel):
-    if bpy.app.version < (2,80,0):
-        Region = "TOOLS"
-    else:
-        Region = "UI"
+    Region = "UI"
 
     bl_idname = "SLENDER_PT_clean_up_tools_panel"
     bl_label = "Clean-up SL export"
@@ -225,6 +233,7 @@ class SLENDER_PT_clean_up_tools_panel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
     bl_category = "SL"
+    bl_order = 5
 
     def draw(self, context):
         layout = self.layout
@@ -232,6 +241,29 @@ class SLENDER_PT_clean_up_tools_panel(bpy.types.Panel):
         row.operator("slender.merge_uvmaps_for_selected")
         row.operator("slender.remove_doubles")
 
+
+    @classmethod
+    def register(cls):
+        pass
+
+    @classmethod
+    def unregister(cls):
+        pass
+class SLENDER_PT_general_tools_panel(bpy.types.Panel):
+    Region = "UI"
+
+    bl_idname = "SLENDER_PT_general_tools_panel"
+    bl_label = "General Tools"
+    bl_description = "Tools for sundry common tasks"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = Region
+    bl_category = "SL"
+    bl_order = 5
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        row.operator("slender.check_names")
 
     @classmethod
     def register(cls):
@@ -310,19 +342,23 @@ def getWeights(item):
 
 
 class SLENDER_PT_slmesh_upload_estimate(bpy.types.Panel):
-    if bpy.app.version < (2,80,0):
-        Region = "TOOLS"
-    else:
-        Region = "UI"
+    Region = "UI"
 
     bl_idname = "SLENDER_PT_slmesh_upload_estimate"
     bl_label = "SL Mesh Upload Estimate"
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
     bl_category = "SL"
+    bl_order = 25
 
     #    def draw_header(self, context):
     #        util.draw_info_header(self.layout, '', msg=panel_estimate_slupload)
+
+    @classmethod
+    def poll(cls, context):
+        if not ut.slender_activated():
+            return False # only show for an Active SLender session
+        return True
 
     def draw(self, context):
         layout = self.layout
@@ -413,16 +449,19 @@ class SLENDER_PT_slmesh_upload_estimate(bpy.types.Panel):
 
 
 class SLENDER_PT_slmesh_materials_info(bpy.types.Panel):
-    if bpy.app.version < (2,80,0):
-        Region = "TOOLS"
-    else:
-        Region = "UI"
+    Region = "UI"
 
     bl_idname = "SLENDER_PT_slmesh_materials_info"
     bl_label = "Materials Information"
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
     bl_category = "SL"
+
+    @classmethod
+    def poll(cls, context):
+        if not ut.slender_activated():
+            return False
+        return True
 
     def draw(self, context):
         layout = self.layout

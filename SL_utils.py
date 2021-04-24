@@ -1,6 +1,6 @@
 '''
 Utility functions for this the Second Life Helper addon
-Copyright (C) 2018,2019 Beq Janus
+Copyright (C) 2018,2019,2020,2021 Beq Janus
 
 
 Created by Beq Janus (beqjanus@gmail.com)
@@ -47,15 +47,15 @@ def get_addon_preferences():
             return get_addon_preferences.addon_prefs
 
 def get_addon_scene_vars():
+    # try:
+    #     return get_addon_scene_vars.vars 
+    # except AttributeError:
+    addon_key = __package__.split(".")[0]
     try:
-        return get_addon_scene_vars.vars 
-    except AttributeError:
-        addon_key = __package__.split(".")[0]
-        try:
-            setattr(get_addon_scene_vars, 'vars', getattr(bpy.context.scene, addon_key+'_vars' ))
-            return get_addon_scene_vars.vars
-        except:
-            return None
+        setattr(get_addon_scene_vars, 'vars', getattr(bpy.context.scene, addon_key+'_vars' ))
+        return get_addon_scene_vars.vars
+    except:
+        return None
 
 def get_pref(name):
     return getattr(get_addon_preferences(), name)
@@ -101,7 +101,15 @@ def area_of_circle_encompassing_square(squareSize):
 
 
 def get_sl_base_name(objectName):
-    return objectName.rsplit('_', 1)[0]
+    try:
+        base,LOD=objectName.rsplit('_', 1)
+    except ValueError:
+        base = objectName
+        LOD = None
+
+    if LOD is None  or LOD not in ('LOD0', 'LOD1', 'LOD2', 'LOD3', 'PHYS'):
+        return objectName
+    return base
 
 def object_exists(objectName):
     return objectName in bpy.data.objects
@@ -319,6 +327,35 @@ def check_and_create_Physics(objects):
             PHYSics.location = ob.location
             PHYSics.rotation_euler = ob.rotation_euler
             PHYSics.dimensions = ob.dimensions
+
+
+# import bpy
+
+# def survey(obj):
+#     maxWeight = {}
+#     for i in obj.vertex_groups:
+#         maxWeight[i.index] = 0
+
+#     for v in obj.data.vertices:
+#         for g in v.groups:
+#             gn = g.group
+#             w = obj.vertex_groups[g.group].weight(v.index)
+#             if (maxWeight.get(gn) is None or w>maxWeight[gn]):
+#                 maxWeight[gn] = w
+#     return maxWeight
+
+# obj = bpy.context.active_object
+# maxWeight = survey(obj)
+# # fix bug pointed out by user2859
+# ka = []
+# ka.extend(maxWeight.keys())
+# ka.sort(key=lambda gn: -gn)
+# print (ka)
+# for gn in ka:
+#     if maxWeight[gn]<=0:
+#         print ("delete %d"%gn)
+#         obj.vertex_groups.remove(obj.vertex_groups[gn]) # actually remove the group
+    
 
 #            if() = len(poly.vertices) - 2
 #            if tris_from_poly > 0:

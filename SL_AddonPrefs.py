@@ -13,7 +13,7 @@ from . import SL_utils as ut
 from . import SL_object_mgr as ob
 
 '''
-Copyright (C) 2018,2019 Beq Janus
+Copyright (C) 2018,2019,2020,2021 Beq Janus
 
 
 Created by Beq Janus (beqjanus@gmail.com)

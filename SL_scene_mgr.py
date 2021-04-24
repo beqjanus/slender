@@ -8,7 +8,7 @@ from . import SL_utils as ut
 from . import Collection_utils as cu
 # licence
 '''
-Copyright (C) 2018,2019 Beq Janus
+Copyright (C) 2018,2019,2020,2021 Beq Janus
 
 
 Created by Beq Janus (beqjanus@gmail.com)
@@ -33,8 +33,9 @@ def activate_slender_for_scene(state=True):
     if vars is None:
         setattr(bpy.types.Scene, 'slender_vars', bpy.props.PointerProperty(type=SLENDER_SceneVars))   #     setattr(prefs, 'obj_mgr_properties', SLENDER_ObjMgr_props)
 
-    vars = bpy.context.scene.slender_vars
-    vars.active = state
+    vars = bpy.data.scenes.get( "Scene" ).slender_vars
+    if not vars.active:
+        vars.active = state
 
     root_collection = cu.make_collection("SLender")
 
@@ -133,7 +134,6 @@ class SLENDER_OT_Export(bpy.types.Operator):
             obj.select_set(True)
         return {'FINISHED'}
 
-
 class SLENDER_OT_Activate(bpy.types.Operator):
     bl_idname = "slender.activate"
     bl_label = "ActivateSlender"
@@ -148,16 +148,22 @@ class SLENDER_OT_Activate(bpy.types.Operator):
         return {'FINISHED'}
 
 class SLENDER_PT_collada_export(Panel):
-    if bpy.app.version < (2,80,0):
-        Region = "TOOLS"
-    else:
-        Region = "UI"
+    Region = "UI"
     bl_label = "SLender export"
     # bl_options = {"DEFAULT_CLOSED"}
     bl_idname = "SLENDER_PT_collada_export_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
     bl_category = "SL"
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 32
+
+    @classmethod
+    def poll(cls, context):
+        if not ut.slender_activated():
+            return False
+        return True
+
 
     def draw(self, context):
         layout = self.layout
@@ -175,12 +181,9 @@ class SLENDER_PT_collada_export(Panel):
         layout.operator("slender.export", text="Export", icon='EXPORT')
 
 class SLENDER_PT_status_panel(bpy.types.Panel):
-    if bpy.app.version < (2,80,0):
-        Region = "TOOLS"
-    else:
-        Region = "UI"
-    bl_label = "SLender activation and status information"
-    bl_options = {"DEFAULT_CLOSED"}
+    Region = "UI"
+    bl_label = "SLender Status"
+    bl_order = 0
     bl_idname = "SLENDER_PT_status_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
@@ -192,9 +195,12 @@ class SLENDER_PT_status_panel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         if not ut.slender_activated():
-            setattr(self, 'bl_label', "SLender [Inactive]")
-            layout.operator("slender.activate")
-            layout.label(text="Activate SLender for this scene")
+            if cu.collection_exists("SLender"):
+                activate_slender_for_scene()
+            else:
+                setattr(self, 'bl_label', "SLender [Passive]")
+                layout.operator("slender.activate")
+                layout.label(text="Activate SLender for this scene")
         else:
             setattr(self, 'bl_label', "SLender [Active]")
             box = layout.box()
@@ -212,202 +218,3 @@ class SLENDER_PT_status_panel(bpy.types.Panel):
     @classmethod
     def unregister(cls):
         pass
-
-
-# # Simple Operator
-# class SLENDER_OT_list_manager(bpy.types.Operator):
-#     bl_idname = 'slender.list_manager'
-#     bl_label = "manage objects in linkset/cluster"
-#     bl_options = {'REGISTER'}
-
-#     @classmethod
-#     def poll(cls, context):
-#         return True
-
-#     @classmethod
-#     def register(cls):
-#         print("Registered %s" % (cls))
-#         # try:
-#         #     bpy.utils.register_class(SLToolsSceneMgrProp)
-#         # except:
-#         #     pass
-# #        bpy.types.Scene.slender_scenemgr : CollectionProperty(type=SLENDER_SceneMgrProp)
-# #        bpy.types.Scene.slender_index : IntProperty()
-
-#     @classmethod
-#     def unregister(cls):
-#         pass
-
-#     # internal property
-#     action : bpy.props.EnumProperty(
-#         items=(
-#             ('UP', "Up", ""),
-#             ('DOWN', "Down", ""),
-#             ('REMOVE', "Remove", ""),
-#             ('ADD', "Add", ""),
-#         )
-#     )
-
-#     def invoke(self, context, event):
-#         scn = context.scene
-#         idx = scn.slender_index
-#         try:
-#             item = scn.slender_scenemgr[idx]
-#         except IndexError:
-#             pass
-#         else:
-#             if self.action == 'DOWN' and idx < len(scn.slender_scenemgr) - 1:
-# #                item_next = scn.slender_scenemgr[idx + 1].name
-#                 scn.slender_scenemgr.move(idx, idx + 1)
-#                 scn.slender_index += 1
-#                 info = 'Item %d selected' % (scn.slender_index + 1)
-#                 self.report({'INFO'}, info)
-
-#             elif self.action == 'UP' and idx >= 1:
-# #                item_prev = scn.slender_scenemgr[idx - 1].name
-#                 scn.slender_scenemgr.move(idx, idx - 1)
-#                 scn.slender_index -= 1
-#                 info = 'Item %d selected' % (scn.slender_index + 1)
-#                 self.report({'INFO'}, info)
-
-#             elif self.action == 'REMOVE':
-#                 info = 'Item %s removed from list' % (scn.slender_scenemgr[scn.slender_index].name)
-#                 scn.slender_index -= 1
-#                 self.report({'INFO'}, info)
-#                 scn.slender_scenemgr.remove(idx)
-
-#         if self.action == 'ADD':
-#             objects_in_list = [existing_item.name for existing_item in scn.slender_scenemgr.values()]
-#             for object in bpy.context.selected_objects:
-#                 if object.name not in objects_in_list:
-#                     item = scn.slender_scenemgr.add()
-#                     item.id = len(scn.slender_scenemgr)
-#                     item.name = object.name  # assign name of selected object
-#                     scn.slender_index = (len(scn.slender_scenemgr) - 1)
-#                     info = '%s added to list' % (item.name)
-#                     self.report({'INFO'}, info)
-
-#         return {"FINISHED"}
-
-
-# # custom list
-# class SLENDER_UL_items(UIList):
-
-#     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-#         split = layout.split(factor=0.3)
-#         split.label(text="Index: %d" % (index))
-#         split.prop(item, "name", text="", emboss=False, translate=False, icon='MATCUBE')
-
-#     def invoke(self, context, event):
-#         pass
-
-# # Menu Panel
-# class SLENDER_PT_panel(bpy.types.Panel):
-#     if bpy.app.version < (2,80,0):
-#         Region = "TOOLS"
-#     else:
-#         Region = "UI"
-
-#     bl_idname = "slender.panel"
-#     bl_label = "SLToolspanel"
-#     bl_space_type = "VIEW_3D"
-#     bl_region_type = Region
-#     bl_category = "SL"
-
-#     def draw(self, context):
-#         layout = self.layout
-#         layout.operator("slender.list_manager", text="SLENDER_operator", icon="SCENE_DATA")
-#         scn = bpy.context.scene
-
-#         rows = 2
-#         row = layout.row()
-#        row.template_list("SLToolsitems", "", scn, "slender_scenemgr", scn, "slender_index", rows=rows)
-
-        # col = row.column(align=True)
-        # col.operator("slender.list_manager", icon='ADD', text="").action = 'ADD'
-        # col.operator("slender.list_manager", icon='REMOVE', text="").action = 'REMOVE'
-        # col.separator()
-        # col.operator("slender.list_manager", icon='TRIA_UP', text="").action = 'UP'
-        # col.operator("slender.list_manager", icon='TRIA_DOWN', text="").action = 'DOWN'
-
-        # row = layout.row()
-        # col = row.column(align=True)
-        # col.operator("slender.print_list", icon="WORDWRAP_ON")
-        # col.operator("slender.select_item", icon="FILE_TICK")
-        # col.operator("slender.clear_list", icon="CANCEL")
-
-
-# # Create custom property group for the SceneMgr
-# # A collection of these is created per item in the scene
-# # TODO: rebuild to use collections
-# class SLENDER_SceneMgrProp(bpy.types.PropertyGroup):
-#     name : StringProperty()
-#     id : IntProperty()
-
-# # print button
-# class SLENDER_OT_print_list(bpy.types.Operator):
-#     bl_idname = "slender.print_list"
-#     bl_label = "Print List"
-#     bl_description = "Print all items to the console"
-
-#     def execute(self, context):
-#         scn = context.scene
-#         for i in scn.slender_scenemgr:
-#             print(i.name, i.id)
-#         return {'FINISHED'}
-
-
-# # select button
-# class SLENDER_OT_select_item(bpy.types.Operator):
-#     bl_idname = "slender.select_item"
-#     bl_label = "Select List Item"
-#     bl_description = "Select Item in scene"
-
-#     def execute(self, context):
-#         scn = context.scene
-#         bpy.ops.object.select_all(action='DESELECT')
-#         obj = bpy.data.objects[scn.slender_scenemgr[scn.slender_index].name]
-#         obj.select = True
-
-#         return {'FINISHED'}
-
-
-# # clear button
-# class SLENDER_OT_clear_list(bpy.types.Operator):
-#     bl_idname = "slender.clear_list"
-#     bl_label = "Clear List"
-#     bl_description = "Clear all items in the list"
-
-#     def execute(self, context):
-#         scn = context.scene
-#         lst = scn.slender_scenemgr
-#         #current_index = scn.slender_index
-
-#         if len(lst) > 0:
-#             # reverse range to remove last item first
-#             for i in range(len(lst) - 1, -1, -1):
-#                 scn.slender.scenemgr.remove(i)
-#             self.report({'INFO'}, "All items removed")
-#             assert (len(scn.slender_scenemgr) == 0)
-
-#         else:
-#             self.report({'INFO'}, "Nothing to remove")
-
-#         return {'FINISHED'}
-
-
-
-# # Register/Unregister
-# def register():
-# #    bpy.utils.register_module(__name__)
-#     bpy.types.Scene.slender_scenemgr : CollectionProperty(type=SLENDER_SceneMgrProp)
-#     bpy.types.Scene.slender_index : IntProperty()
-
-# def unregister():
-#     del bpy.types.Scene.slender_index
-#     del bpy.types.Scene.slender_scenemgr
-# #    bpy.utils.unregister_module(__name__)
-
-
-# if __name__ == "__main__":
-#     register()

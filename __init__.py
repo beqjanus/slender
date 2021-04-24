@@ -22,7 +22,7 @@ bl_info = {
     "description": "A series of helper tools to aid mesh developement in Second Life",
     "author": "Beq Janus",
     "version": (0, 0, 4),
-    "blender": (2, 80, 0),
+    "blender": (2, 83, 0),
     "location": "View3D",
     "warning": "This addon is still in development.",
     "category": "Object",
@@ -36,12 +36,6 @@ import os
 import bpy
 import bpy.types
 from bpy.props import StringProperty, StringProperty, EnumProperty, BoolProperty, PointerProperty
-#from bpy.types import AddonPreferences
-
-#from . import developer_utils as du
-
-
-#importlib.reload(du)
 
 # register
 ##################################
@@ -51,64 +45,10 @@ import inspect
 
 from .SL_vars import SLENDER_SceneVars
 
-# def register_class_by_type(module):
-#     num_operators = 0
-#     num_panels = 0
-#     num_properties = 0
-#     print("Registering %s" % (module.__name__))
-#     #    for name, obj in inspect.getmembers(sys.modules[__name__]):
-#     for name, obj in inspect.getmembers(module):
-#         if inspect.isclass(obj):
-#             class_type = None
-#             if du.is_class_an_operator(obj):
-#                 num_operators += 1
-#                 class_type = "operator"
-#             if du.is_class_a_property(obj):
-#                 num_properties += 1
-#                 class_type = "property"
-#             if du.is_class_a_panel(obj):
-#                 num_panels += 1
-#                 class_type = "panel"
-
-#             if class_type is not None:
-#                 print("Registering class as %s: %s" % (class_type, name))
-#                 try:
-#                     bpy.utils.register_class(obj)
-#                 except Exception as e:
-#                     print("Failed to register class %s : %s (%s)" % (name, e, type(e)))
-#                     traceback.print_exc()
-
-#                 if class_type == "panel":
-#                     num_panels -= 1
-#                 elif class_type == "property":
-#                     num_properties -= 1
-#                 else:
-#                     num_operators -= 1
-#     #    try:bpy.utils.register_class(LODModelProperties)
-#     #    except: traceback.print_exc()
-#     print("Registered {}.{} with {} operators, {} properties and {} panels".format(
-#         bl_info["name"], module.__name__,
-#         num_operators, num_properties, num_panels))
 
 from . import auto_load
-#from SL_scene_mgr import SLENDER_SceneMgrProp, SLENDER_OT_list_manager
-#from SL_utils import SLENDER_OT_Activate
 
 auto_load.init()
-
-# classes = (
-#     SLenderAddonPreferences,
-#     OBJECT_OT_slender_addon_prefs,
-#     ob.SLENDER_ObjMgr_props,
-#     sm.SLENDER_SceneMgrProp,
-#     sm.SLENDER_OT_Activate,
-#     sm.SLENDER_OT_list_manager,
-#     sm.SLENDER_PT_status_panel,
-#     sm.SLENDER_PT_panel,
-#     ob.SLENDER_OT_make_lodmodels_from_selection,
-#     ob.SLENDER_PT_create_lod_models_panel,
-#     ob.SLENDER_PT_slmesh_upload_estimate,
-# )
 
 def register():
     # for cls in classes:
