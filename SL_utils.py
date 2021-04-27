@@ -144,6 +144,15 @@ def has_lod_model(item, LOD):
             return True
     return False
 
+def has_any_lod_in_list(item, list):
+    for lod in ('LOD0', 'LOD1', 'LOD2', 'LOD3'):
+        if has_lod_model(item, lod):
+            lod_obj = get_lod_model(item, lod)
+            if lod_obj is not None:
+                if lod_obj in list:
+                    return True
+    return False
+
 '''
 Given an object, return the model in the given LOD
 - will strip down to basename then add the LOD extenstion before checkinbg the existnece of the target object and it's presence in the right collection
@@ -169,7 +178,10 @@ def get_mesh_lods_defined(item):
 
 
 def get_lod_model(obj, LOD, check_tracked=True):
-    item = bpy.data.objects[get_sl_LOD_name(obj.name, LOD)]
+    try:
+        item = bpy.data.objects[get_sl_LOD_name(obj.name, LOD)]
+    except KeyError:
+        item = None
     if (item is not None) and ((not check_tracked) or cu.is_in_collection(item, get_collection_name_for_LOD(LOD))):
         return item
     return None
@@ -234,7 +246,6 @@ def source_setter(self, value):
 def show_getter(self):
     #    print("target_value: value is %s" % (self.target_value))
     return self.show_value
-
 
 def show_setter(self, value):
     prefs = get_addon_preferences()

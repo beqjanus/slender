@@ -57,12 +57,9 @@ class SLENDER_OT_make_lodmodels_from_selection(bpy.types.Operator):
     bl_description = "create LOD models from the selected model(s)"
     bl_options = {"REGISTER"}
 
-    def getObjectBaseName(self, objectName):
-        return objectName.rsplit('_', 1)[0]
-
     def createNewLODModel(self, origObj, LOD):
         # given an object which may be "Object" or "Object_SRCLOD" produce the target name OBJECT_LOD
-        new_name = self.getObjectBaseName(origObj.name) + ut.get_suffix_for_LOD(LOD)
+        new_name = ut.get_sl_base_name(origObj.name) + ut.get_suffix_for_LOD(LOD)
 
         # check if it already exists. If it does we return the existing model
         if bpy.data.objects.get(new_name) is not None:

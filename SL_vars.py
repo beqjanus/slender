@@ -13,20 +13,37 @@ class SLENDER_SceneVars(bpy.types.PropertyGroup):
     )
 
     export_path : StringProperty(
-        name="Export Directory",
+        name="Folder",
         description="Path to directory where the files are created",
         default="//",
         maxlen=1024,
         subtype="DIR_PATH"
+    )
+    export_scene_name : StringProperty(
+        name="Scene name",
+        description="Name of the scene. Default is blend name without trailing (version) number",
+        default="",
+        maxlen=1024,
+        subtype="FILE_NAME"
     )
     export_format: EnumProperty(
         name="Format",
         description="Format type to export to",
         items=(
             ('DAE', "DAE", ""),
-            ('SLM', "SLM", ""),
+#            ('SLM', "SLM", ""),
         ),
         default='DAE',
+    )
+    export_as_scene: BoolProperty(
+        name="As Scene",
+        description="Export as a consolidated scene DAE. When false exports individual DAE file sets",
+        default=False,
+    )
+    selected_only: BoolProperty(
+        name="Selected Only",
+        description="Only include the selected SLender models, when false all valid SLender controlled models are exported",
+        default=True,
     )
     use_export_texture: BoolProperty(
         name="Copy Textures",

@@ -92,20 +92,76 @@ def write_to_collada(file, LOD):
     keep_bind_info=False,
 )
 
-def prep_and_export_LOD(export_file, LOD):
+def make_filename(path, scene,obj):
+    import os
+    if scene is None or scene == "":
+        # Create name 'export_path/blendname-objname'
+        # add the filename component
+        if bpy.data.is_saved:
+            name = os.path.basename(bpy.data.filepath)
+            name = os.path.splitext(name)[0]
+        else:
+            name = "slender_export"
+    else:
+        name = scene
+
+    if obj is not None:
+        # add object name
+        name += f"-{bpy.path.clean_name(obj.name)}"
+
+
+    # first ensure the path is created
+    if path:
+        # this can fail with strange errors,
+        # if the dir cant be made then we get an error later.
+        try:
+            os.makedirs(path, exist_ok=True)
+        except:
+            import traceback
+            traceback.print_exc()
+
+    return os.path.join(path, name)
+
+
+def prep_and_export_LOD(path, scene, LOD, selected, as_scene):
+    '''
+    Export a scene or selection of models
+    There are four variations
+    as_scene = True AND selected_only = True
+    - Export a single set of files containing only those models in the current selection
+    as_scene = True AND selected_only = False
+    - Export a single set of files containing all SLender controlled models.
+    as_scene = False AND selected_only = True
+    - Export each SLender model in the selection as its own set of files
+    as_scene = False AND selected_only = False
+    - Export every SLender controlled model as its own set of files
+    '''
+# Clear the selection ready to enable only those we want to export.
     bpy.ops.object.select_all(action='DESELECT')
     coll_name = ut.get_collection_name_for_LOD(LOD)
     vp_showing = cu.is_collection_visible(coll_name)
     cu.show_collection(coll_name, show=True)
     bpy.data.collections[coll_name].hide_viewport = False
-    for obj in bpy.data.collections[coll_name].objects:
+# if selected is None then we are using all the potential objects.
+    if selected is None:
+        selected = bpy.data.collections[ut.get_collection_name_for_LOD("LOD3")].objects
+    else:
+        # No point writing this out if no High LOD exists as that will error SL
+        selected = [model for model in selected if ut.has_lod_model(model, "LOD3")]
+    for obj in selected:
         lod_obj = ut.get_lod_model(obj,LOD)
         if lod_obj is not None:
             ut.check_name_and_reset(lod_obj)
             if(lod_obj.hide_get()):
                 lod_obj.hide_set(False)
             lod_obj.select_set(True) # select these ones.
-    write_to_collada(export_file, LOD)
+            if as_scene == False:
+                export_file = make_filename(path, scene, lod_obj)
+                write_to_collada(export_file, LOD)
+                lod_obj.select_set(False) # deselect again
+    if as_scene == True:
+        export_file = make_filename(path, scene, None)
+        write_to_collada(export_file, LOD)
     cu.show_collection(coll_name, show=vp_showing)
 
 
@@ -117,19 +173,25 @@ class SLENDER_OT_Export(bpy.types.Operator):
         vars=ut.get_addon_scene_vars()
         selected = bpy.context.selected_objects
         # deselect all meshes
-        export_file = "{}/{}".format(ut.get_var("export_path"), "slender_export")
+        as_scene = ut.get_var("export_as_scene")
+        scene_name = ut.get_var("export_scene_name")
+        export_path = ut.get_var("export_path")
 
-        # bpy.ops.object.select_all(action='DESELECT')
         # for obj in bpy.data.collections['HighLOD'].objects:
         #     obj.select_set(True) # select these ones.
         # write_to_collada(export_file, "")
+        if ut.get_var("selected_only"):
+            for_export = selected
+        else:
+            for_export = None
+        prep_and_export_LOD(export_path, scene_name, "LOD3", for_export, as_scene )
+        prep_and_export_LOD(export_path, scene_name, "LOD2", for_export, as_scene )
+        prep_and_export_LOD(export_path, scene_name, "LOD1", for_export, as_scene )
+        prep_and_export_LOD(export_path, scene_name, "LOD0", for_export, as_scene )
+        prep_and_export_LOD(export_path, scene_name, "PHYS", for_export, as_scene )
 
-        prep_and_export_LOD(export_file, "LOD3")
-        prep_and_export_LOD(export_file, "LOD2")
-        prep_and_export_LOD(export_file, "LOD1")
-        prep_and_export_LOD(export_file, "LOD0")
-        prep_and_export_LOD(export_file, "PHYS")
         # restore selection
+        bpy.ops.object.select_all(action='DESELECT')
         for obj in selected:
             obj.select_set(True)
         return {'FINISHED'}
@@ -147,11 +209,11 @@ class SLENDER_OT_Activate(bpy.types.Operator):
         activate_slender_for_scene()
         return {'FINISHED'}
 
-class SLENDER_PT_collada_export(Panel):
+class SLENDER_PT_export(Panel):
     Region = "UI"
     bl_label = "SLender export"
     # bl_options = {"DEFAULT_CLOSED"}
-    bl_idname = "SLENDER_PT_collada_export_panel"
+    bl_idname = "SLENDER_PT_export_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
     bl_category = "SL"
@@ -171,7 +233,10 @@ class SLENDER_PT_collada_export(Panel):
         layout.use_property_decorate = False
         vars=ut.get_addon_scene_vars()
         # if vars is not None:
-        layout.prop(vars, "export_path", text="")
+        layout.prop(vars, "export_as_scene", text="Consolidated?")
+        layout.prop(vars, "selected_only", text="Only selected models")
+        layout.prop(vars, "export_path", text="Folder:")
+        layout.prop(vars, "export_scene_name", text="Scene name:")
 
         col = layout.column()
         col.prop(vars, "use_apply_scale")
