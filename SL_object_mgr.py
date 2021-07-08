@@ -79,6 +79,32 @@ class SLENDER_OT_make_lodmodels_from_selection(bpy.types.Operator):
         collection.objects.link(obNew)
         return obNew
 
+    def createNewLODModelStrict(self, origObj, LOD):
+        # given an object which may be "Object" or "Object_SRCLOD" produce the target name OBJECT_LOD
+        new_name = ut.get_sl_base_name(origObj.name) + ut.get_suffix_for_LOD(LOD)
+
+        # check if it already exists. If it does we return the existing model
+        # for HIGH LOD or None if a LOD already exists for this
+        if bpy.data.objects.get(new_name) is not None:
+            if(LOD == "LOD3"):
+                return origObj
+            else:
+                return None
+
+        # create a new mesh with name
+        mesh = bpy.data.meshes.new(new_name)
+        # create a new object associated to that mesh
+        obNew = bpy.data.objects.new(new_name, mesh)
+        # copy the data block from the old object ot the new one
+        obNew.data = origObj.data.copy()
+        obNew.scale = origObj.scale
+        obNew.location = origObj.location
+        obNew.rotation_euler = origObj.rotation_euler
+        # Link new object to the given scene and select it
+        collection = bpy.context.scene.collection
+        collection.objects.link(obNew)
+        return obNew
+
     def moveToCollection(self, obj, collection):
         #        obj.layers = [ i in {2,6,5,11} for i in range(len(obj.layers)) ]
         #        print("Moving %s to %s" % (obj.name, layers_tuple))
@@ -108,13 +134,15 @@ class SLENDER_OT_make_lodmodels_from_selection(bpy.types.Operator):
         for thisObject in context.selected_objects:
             # basename = self.getObjectBaseName(thisObject.name)
             # strip the _LOD if any to find the "root" name
-            source = self.findOrCreateSourceModel(thisObject, context)
+            # source = self.findOrCreateSourceModel(thisObject, context)
+            source = thisObject
             # locate the source LOD Model if it exists, if not create it using the selected mesh
             if (source is not None):
                 for i in ut.get_var('LOD_model_target'):
                     # For every target LOD clone the src and relocate it to the correct layer
-                    targetModel = self.createNewLODModel(source, self.getLODAsString(i))
-                    self.moveToCollection(targetModel, ut.get_collection_name_for_LOD(self.getLODAsString(i)))
+                    targetModel = self.createNewLODModelStrict(source, self.getLODAsString(i))
+                    if targetModel is not None:
+                        self.moveToCollection(targetModel, ut.get_collection_name_for_LOD(self.getLODAsString(i)))
         return {"FINISHED"}
 
     @classmethod
@@ -129,10 +157,12 @@ class SLENDER_OT_make_lodmodels_from_selection(bpy.types.Operator):
 class SLENDER_OT_make_phys_cubes_for_all(bpy.types.Operator):
     bl_idname = "slender.make_phys_cubes_for_all"
     bl_label = "Make physics cubes"
-    bl_description = "create physics cubes for all models in SLender control"
+    bl_description = "create physics cubes for all models in High LOD with no existing physics"
     bl_options = {"REGISTER"}    
 
     def execute(self, context):
+        selected = bpy.context.selected_objects
+        active = ut.get_active_scene_object()
         for origObj in bpy.data.collections['HighLOD'].objects:
             if ut.has_lod_model(origObj,"_PHYS") == False:
                 print("creating Physics cube for " + origObj.name)
@@ -149,6 +179,11 @@ class SLENDER_OT_make_phys_cubes_for_all(bpy.types.Operator):
                 obNew.display_type='WIRE'
                 ut.rename_object_fully(obNew, ut.get_sl_LOD_name(origObj.name, "PHYS"))
                 cu.move_to_collection(obNew, 'Physics')
+        # restore selection
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in selected:
+            obj.select_set(True)
+        ut.set_active_scene_object(active)
         return {'FINISHED'}
 
 class SLENDER_OT_merge_UVMaps(bpy.types.Operator):
@@ -205,11 +240,11 @@ class SLENDER_PT_create_lod_models_panel(bpy.types.Panel):
         vars=ut.get_addon_scene_vars()
         if vars is not None:
             layout = self.layout
-            layout.operator("slender.make_lodmodels_from_selection")
-            layout.label(text="Use selected model as...")
-            layout.prop(vars, 'LOD_model_source', expand=True)
-            layout.label(text="Create LOD (shift click multi)")
+            # layout.label(text="Use selected model as...")
+            # layout.prop(vars, 'LOD_model_source', expand=True)
+            layout.label(text="Create LOD from selection (shift click multi)")
             layout.prop(vars, 'LOD_model_target', expand=True)
+            layout.operator("slender.make_lodmodels_from_selection")
             layout.operator("slender.make_phys_cubes_for_all")
         
 
