@@ -2,3 +2,6 @@ __pycache__/**
 .idea/**
 .vscode/**
 scrap/**
+exports/
+
+SLExports/
