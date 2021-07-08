@@ -150,13 +150,14 @@ def prep_and_export_LOD(path, scene, LOD, selected, as_scene):
         selected = [model for model in selected if ut.has_lod_model(model, "LOD3")]
     for obj in selected:
         lod_obj = ut.get_lod_model(obj,LOD)
+        ref_obj = ut.get_lod_model(obj,"LOD3")
         if lod_obj is not None:
             ut.check_name_and_reset(lod_obj)
             if(lod_obj.hide_get()):
                 lod_obj.hide_set(False)
             lod_obj.select_set(True) # select these ones.
             if as_scene == False:
-                export_file = make_filename(path, scene, lod_obj)
+                export_file = make_filename(path, scene, ref_obj)
                 write_to_collada(export_file, LOD)
                 lod_obj.select_set(False) # deselect again
     if as_scene == True:
