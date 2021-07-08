@@ -59,8 +59,8 @@ class SLENDER_SceneVars(bpy.types.PropertyGroup):
 
 
     # This is how you make a static enum prop for the scene
-    src_value : bpy.props.IntProperty(name='source bit mask', default=1)
-    target_value : bpy.props.IntProperty(name='target_bit_mask', default=30)
+    src_value : bpy.props.IntProperty(name='source bit mask', default=0)
+    target_value : bpy.props.IntProperty(name='target_bit_mask', default=1)
     show_value : bpy.props.IntProperty(name='show_bit_mask', default=1)
     enum_items = (
         ('0', 'Hi', '', 1), ('1', 'Med', '', 2), ('2', 'Low', '', 4), ('3', 'Lowest', '', 8), ('4', 'Phys', '', 16))

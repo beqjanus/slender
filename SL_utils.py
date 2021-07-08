@@ -77,7 +77,9 @@ def slender_activated():
 
 # return name of selected object
 def get_active_scene_object():
-    return bpy.context.scene.objects.active.name
+    return bpy.context.view_layer.objects.active
+def set_active_scene_object(ob):
+    bpy.context.view_layer.objects.active = ob
 
 def area_of_circle(r):
     return math.pi * r * r
@@ -220,14 +222,14 @@ def dump(obj):
 
 
 def target_getter(self):
-    #    print("target_value: value is %s" % (self.target_value))
+    # print("target_value: value is %s" % (self.target_value))
     return self.target_value
 
 
 def target_setter(self, value):
-    if (value & self.src_value):
-        #        print("target_setter: value clashes with source")
-        value ^= self.src_value
+    # if (value & self.src_value):
+    # print("target_setter: value clashes with source")
+    value ^= self.src_value
     #    print("target_value: setting value to %d (was %d)" % (value, self.target_value))
     self.target_value = value
 
@@ -237,11 +239,11 @@ def source_getter(self):
 
 
 def source_setter(self, value):
-    #    print("source_setter: setting value to %d" % (value))
+    # print("source_setter: setting value to %d" % (value))
     self.src_value = value
-    if (value & self.target_value):
+    # if (value & self.target_value):
         #        print("overriding target_value: removing %d from %d (gives %d)"%(value, self.target_value,(self.target_value^value)))
-        self.target_value ^= value
+    self.target_value ^= value
 
 def show_getter(self):
     #    print("target_value: value is %s" % (self.target_value))
@@ -327,18 +329,6 @@ def place_objects_by_LOD(objects, LOD_level, move=False):
             cu.move_to_collection(ob,collection_name)               
         else:
             cu.copy_to_collection(ob, collection_name)
-
-def check_and_create_Physics(objects):
-    for ob in objects:
-        if (has_lod_model(ob,"_PHYS") is None):
-            print("creating Physics cube for " + ob.name)
-            bpy.ops.mesh.primitive_cube_add()
-            PHYSics = bpy.context.active_object
-            rename_object_fully(PHYSics, get_sl_LOD_name(ob.name, "_PHYS"))
-            PHYSics.location = ob.location
-            PHYSics.rotation_euler = ob.rotation_euler
-            PHYSics.dimensions = ob.dimensions
-
 
 # import bpy
 
