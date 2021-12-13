@@ -258,6 +258,9 @@ def show_setter(self, value):
         if (1 << count) & value:
             show = True
         cu.show_collection(collname, show)
+    bpy.ops.object.select_all(action='DESELECT') # de-select anything to reduce confusion
+    # TODO(Beq) IF we are showing just one LOD AND we have an object selected that has an instance in that LOD then select it.
+
 
 def addLODCountToMatlist(mat_list, SLMeshObject, LOD):
     model = get_lod_model(SLMeshObject, LOD)
