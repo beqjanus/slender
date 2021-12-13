@@ -473,7 +473,7 @@ class SLENDER_PT_slmesh_upload_estimate(bpy.types.Panel):
 
 #        weightedAverage =   hi_tris*highAreaRatio + mid_tris*midAreaRatio + low_tris*lowAreaRatio + lowest_tris*lowestAreaRatio
 
-        streamingCost = weighted_avg / ut.get_pref('mesh_triangle_budget') * 15000
+        streamingCost = weighted_avg / ut.get_pref('mesh_triangle_budget') * 12500
 
         row = col.row(align=True)
         row.label(text="Streaming Cost")
@@ -491,7 +491,7 @@ class SLENDER_PT_slmesh_materials_info(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        if not ut.slender_activated():
+        if not ut.slender_activated():        
             return False
         return True
 

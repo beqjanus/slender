@@ -78,7 +78,7 @@ class SLenderAddonPreferences(AddonPreferences):
             LOD1_collection="LowLOD",
             LOD0_collection="LowestLOD",
             PHYS_collection="Physics",
-            max_area=102892, #ut.area_of_circle_encompassing_square(256),
+            max_area=ut.area_of_circle_encompassing_square(256),
             min_area=1,
             mesh_triangle_budget=250000)
         if not os.path.exists(CONFIG_DIR):
