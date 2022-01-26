@@ -27,10 +27,21 @@ Find the first collection that this object belongs to
 
 import bpy
 
-def show_collection(collection_name, show=True):
+def hide_all_collections():
+    for collection in bpy.context.window.view_layer.layer_collection.children:
+        if collection is not None:
+            collection.hide_viewport = True
+def show_all_collections():
+    for collection in bpy.data.collections:
+        if collection is not None:
+            collection.hide_viewport = False
+
+def show_slender_collection(collection_name, show=True):
     collection = bpy.data.collections[collection_name]
+    if show == True :
+        bpy.context.window.view_layer.layer_collection.children['SLender'].hide_viewport = not show
     if collection is not None:
-        collection.hide_viewport = not show
+        # collection.hide_viewport = not show
         bpy.context.window.view_layer.layer_collection.children['SLender'].children[collection_name].hide_viewport= not show
 
 def is_collection_visible(collection_name):

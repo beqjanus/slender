@@ -3,6 +3,8 @@ from bpy.props import BoolProperty, CollectionProperty, EnumProperty, IntPropert
 from bpy.types import PropertyGroup
 from . import SL_utils as ut
 
+REGISTERED_CLS_FMT = "registered %s"
+UNREGISTERED_CLS_FMT = "unregistered %s"
 class SLENDER_SceneVars(bpy.types.PropertyGroup):
     bl_options = {"REGISTER"}
 
@@ -98,10 +100,9 @@ class SLENDER_SceneVars(bpy.types.PropertyGroup):
     #         self.LOD_model_target.remove(self.LOD_model_source)
     #         dump(self)
     @classmethod
-    def register(self):
-        print("Registered %s" % (self))
-        pass
+    def register(cls):
+        print(REGISTERED_CLS_FMT % (cls))
 
     @classmethod
-    def unregister(self):
-        pass
+    def unregister(cls):
+        print(UNREGISTERED_CLS_FMT % (cls))

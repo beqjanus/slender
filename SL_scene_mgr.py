@@ -6,6 +6,8 @@ from . import SL_vars
 
 from . import SL_utils as ut
 from . import Collection_utils as cu
+
+from .SL_vars import SLENDER_SceneVars
 # licence
 '''
 Copyright (C) 2018,2019,2020,2021 Beq Janus
@@ -29,28 +31,33 @@ Created by Beq Janus (beqjanus@gmail.com)
 
 def activate_slender_for_scene(state=True):
     prefs = ut.get_addon_preferences()
-    vars = ut.get_addon_scene_vars()
-    if vars is None:
+    scene_vars = ut.get_addon_scene_vars()
+
+    space = ut.get_space('VIEW_3D')
+    if space is not None:
+        space.overlay.show_stats = True
+        space.overlay.show_face_orientation = True
+
+    if scene_vars is None:
         setattr(bpy.types.Scene, 'slender_vars', bpy.props.PointerProperty(type=SLENDER_SceneVars))   #     setattr(prefs, 'obj_mgr_properties', SLENDER_ObjMgr_props)
 
-    vars = bpy.data.scenes.get( "Scene" ).slender_vars
-    if not vars.active:
-        vars.active = state
+    scene_vars = bpy.data.scenes.get( "Scene" ).slender_vars
+    if not scene_vars.active:
+        scene_vars.active = state
 
     root_collection = cu.make_collection("SLender")
 
     for collection_varname in ['LOD3_collection','LOD2_collection','LOD1_collection','LOD0_collection','PHYS_collection']:
         collname = getattr(prefs, collection_varname) # get the name from the variable 
         cu.make_child_collection(collname, root_collection)
-    return 
 
 def check_slender_in_scene():
     prefs = ut.get_addon_preferences()
     if prefs is None:
         return False
 
-    vars = ut.get_addon_scene_vars()
-    if vars is not None:
+    scene_vars = ut.get_addon_scene_vars()
+    if scene_vars is not None:
         activated = ut.get_var('active')
         if activated is not None:
             return activated
@@ -116,7 +123,7 @@ def make_filename(path, scene,obj):
         # if the dir cant be made then we get an error later.
         try:
             os.makedirs(path, exist_ok=True)
-        except:
+        except OSError:
             import traceback
             traceback.print_exc()
 
@@ -140,8 +147,8 @@ def prep_and_export_LOD(path, scene, LOD, selected, as_scene):
     bpy.ops.object.select_all(action='DESELECT')
     coll_name = ut.get_collection_name_for_LOD(LOD)
     vp_showing = cu.is_collection_visible(coll_name)
-    cu.show_collection(coll_name, show=True)
-    bpy.data.collections[coll_name].hide_viewport = False
+    cu.show_slender_collection(coll_name, show=True)
+    bpy.data.collections[coll_name].hide_set(False)
 # if selected is None then we are using all the potential objects.
     if selected is None:
         selected = bpy.data.collections[ut.get_collection_name_for_LOD("LOD3")].objects
@@ -152,7 +159,7 @@ def prep_and_export_LOD(path, scene, LOD, selected, as_scene):
         lod_obj = ut.get_lod_model(obj,LOD)
         ref_obj = ut.get_lod_model(obj,"LOD3")
         if lod_obj is not None:
-            ut.check_name_and_reset(lod_obj)
+            ut.check_name_and_reset(None, lod_obj)
             if(lod_obj.hide_get()):
                 lod_obj.hide_set(False)
             lod_obj.select_set(True) # select these ones.
@@ -163,7 +170,7 @@ def prep_and_export_LOD(path, scene, LOD, selected, as_scene):
     if as_scene == True:
         export_file = make_filename(path, scene, None)
         write_to_collada(export_file, LOD)
-    cu.show_collection(coll_name, show=vp_showing)
+    cu.show_slender_collection(coll_name, show=vp_showing)
 
 
 class SLENDER_OT_Export(bpy.types.Operator):
@@ -171,16 +178,12 @@ class SLENDER_OT_Export(bpy.types.Operator):
     bl_label = "SLENDER_OT_Export"
 
     def execute(self, context):
-        vars=ut.get_addon_scene_vars()
         selected = bpy.context.selected_objects
         # deselect all meshes
         as_scene = ut.get_var("export_as_scene")
         scene_name = ut.get_var("export_scene_name")
         export_path = ut.get_var("export_path")
 
-        # for obj in bpy.data.collections['HighLOD'].objects:
-        #     obj.select_set(True) # select these ones.
-        # write_to_collada(export_file, "")
         if ut.get_var("selected_only"):
             for_export = selected
         else:
@@ -213,7 +216,6 @@ class SLENDER_OT_Activate(bpy.types.Operator):
 class SLENDER_PT_export(Panel):
     Region = "UI"
     bl_label = "SLender export"
-    # bl_options = {"DEFAULT_CLOSED"}
     bl_idname = "SLENDER_PT_export_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
@@ -232,18 +234,18 @@ class SLENDER_PT_export(Panel):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
-        vars=ut.get_addon_scene_vars()
+        scene_vars=ut.get_addon_scene_vars()
         # if vars is not None:
-        layout.prop(vars, "export_as_scene", text="Consolidated?")
-        layout.prop(vars, "selected_only", text="Only selected models")
-        layout.prop(vars, "export_path", text="Folder:")
-        layout.prop(vars, "export_scene_name", text="Scene name:")
+        layout.prop(scene_vars, "export_as_scene", text="Consolidated?")
+        layout.prop(scene_vars, "selected_only", text="Only selected models")
+        layout.prop(scene_vars, "export_path", text="Folder:")
+        layout.prop(scene_vars, "export_scene_name", text="Scene name:")
 
         col = layout.column()
-        col.prop(vars, "use_apply_scale")
-        col.prop(vars, "use_export_texture")
+        col.prop(scene_vars, "use_apply_scale")
+        col.prop(scene_vars, "use_export_texture")
 
-        layout.prop(vars, "export_format")
+        layout.prop(scene_vars, "export_format")
         layout.operator("slender.export", text="Export", icon='EXPORT')
 
 class SLENDER_PT_status_panel(bpy.types.Panel):
@@ -254,9 +256,6 @@ class SLENDER_PT_status_panel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
     bl_category = "SL"
-
-
-#    bl_options = {'REGISTER'}
 
     def draw(self, context):
         layout = self.layout
@@ -272,15 +271,14 @@ class SLENDER_PT_status_panel(bpy.types.Panel):
             box = layout.box()
             row = box.row()
             row.label(text="Show")
-            vars=ut.get_addon_scene_vars()
-            if vars is not None:
-#                showing = box.column()
-                row.prop(vars, 'LOD_collection_show', expand=True)
+            scene_vars=ut.get_addon_scene_vars()
+            if scene_vars is not None:
+                row.prop(scene_vars, 'LOD_collection_show', expand=True)
 
     @classmethod
     def register(cls):
-        pass
+        print("Registered %s" % (cls))
 
     @classmethod
     def unregister(cls):
-        pass
+        print("Unregistered %s" % (cls))

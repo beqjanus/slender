@@ -2,6 +2,8 @@ import bpy
 import bpy.props
 import bpy.types
 
+from bpy.props import StringProperty, EnumProperty
+
 from . import SL_utils as ut
 from . import Collection_utils as cu
 '''
@@ -23,7 +25,8 @@ Created by Beq Janus (beqjanus@gmail.com)
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-
+REGISTERED_CLS_FMT = "registered %s"
+UNREGISTERED_CLS_FMT = "unregistered %s"
 class SLENDER_OT_export_scene(bpy.types.Operator):
     bl_idname = "slender.export_scene"
     bl_label = "Export all as DAE"
@@ -51,8 +54,8 @@ class SLENDER_OT_export_scene(bpy.types.Operator):
     #         ut.rename_object_fully(obNew, ut.get_sl_LOD_name(origObj.name, "PHYS"))
     #         cu.move_to_collection(obNew, 'Physics')
 
-class SLENDER_OT_make_lodmodels_from_selection(bpy.types.Operator):
-    bl_idname = "slender.make_lodmodels_from_selection"
+class SLENDER_OT_make_lod_models_from_selection(bpy.types.Operator):
+    bl_idname = "slender.make_lod_models_from_selection"
     bl_label = "Generate LOD models"
     bl_description = "create LOD models from the selected model(s)"
     bl_options = {"REGISTER"}
@@ -85,11 +88,10 @@ class SLENDER_OT_make_lodmodels_from_selection(bpy.types.Operator):
 
         # check if it already exists. If it does we return the existing model
         # for HIGH LOD or None if a LOD already exists for this
-        if bpy.data.objects.get(new_name) is not None:
-            if(LOD == "LOD3"):
-                return origObj
-            else:
-                return None
+        potential_new_obj = bpy.data.objects.get(new_name)
+        if potential_new_obj is not None:
+            self.report({'ERROR'}, "Object "+ new_name + " already exists")
+            return None
 
         # create a new mesh with name
         mesh = bpy.data.meshes.new(new_name)
@@ -103,13 +105,10 @@ class SLENDER_OT_make_lodmodels_from_selection(bpy.types.Operator):
         # Link new object to the given scene and select it
         collection = bpy.context.scene.collection
         collection.objects.link(obNew)
+        ut.rename_object_fully(obNew,obNew.name)
         return obNew
 
     def moveToCollection(self, obj, collection):
-        #        obj.layers = [ i in {2,6,5,11} for i in range(len(obj.layers)) ]
-        #        print("Moving %s to %s" % (obj.name, layers_tuple))
-        #        myset = [i in layers_tuple for i in range(len(obj.layers)) ]
-        #        print(myset)
         cu.move_to_collection(obj, collection)
         return obj
 
@@ -117,17 +116,17 @@ class SLENDER_OT_make_lodmodels_from_selection(bpy.types.Operator):
         LODSdict = {'0': 'LOD3', '1': 'LOD2', '2': 'LOD1', '3': 'LOD0', '4': 'PHYS'}
         return LODSdict[LODValue]
 
-    def findOrCreateSourceModel(self, origObject, context):
-        '''
-        Given an object move it to the selected src collection if not already there and
-        an object of that name does not already exist.
-        '''
-        # Find the src model for the specificed source LOD derived from the basename
-        source_collection = ut.get_collection_name_for_LOD(self.getLODAsString(ut.get_var('LOD_model_source')))
-        if cu.is_in_collection(origObject, source_collection) is False:
-            return self.moveToCollection(origObject, source_collection)
-        else:
-            return origObject
+    # def findOrCreateSourceModel(self, origObject, context):
+    #     '''
+    #     Given an object move it to the selected src collection if not already there and
+    #     an object of that name does not already exist.
+    #     '''
+    #     # Find the src model for the specificed source LOD derived from the basename
+    #     source_collection = ut.get_collection_name_for_LOD(self.getLODAsString(ut.get_var('LOD_model_source')))
+    #     if cu.is_in_collection(origObject, source_collection) is False:
+    #         return self.moveToCollection(origObject, source_collection)
+    #     else:
+    #         return origObject
 
     def execute(self, context):
         # For every selected object
@@ -138,20 +137,27 @@ class SLENDER_OT_make_lodmodels_from_selection(bpy.types.Operator):
             source = thisObject
             # locate the source LOD Model if it exists, if not create it using the selected mesh
             if (source is not None):
+                if len(ut.get_mesh_lods_defined(source)) == 0:
+                    ut.rename_object_fully(source, ut.get_sl_base_name(source.name)+"_ORIG")
                 for i in ut.get_var('LOD_model_target'):
                     # For every target LOD clone the src and relocate it to the correct layer
                     targetModel = self.createNewLODModelStrict(source, self.getLODAsString(i))
                     if targetModel is not None:
                         self.moveToCollection(targetModel, ut.get_collection_name_for_LOD(self.getLODAsString(i)))
+        # bpy.ops.object.select_all(action='DESELECT')
+        # for obj in selected:
+        #     obj.select_set(True)
+        # ut.set_active_scene_object(active)
+
         return {"FINISHED"}
 
     @classmethod
     def register(cls):
-        pass
+        print(REGISTERED_CLS_FMT % (cls))
 
     @classmethod
     def unregister(cls):
-        pass
+        print(UNREGISTERED_CLS_FMT % (cls))
 
 
 class SLENDER_OT_make_phys_cubes_for_all(bpy.types.Operator):
@@ -215,7 +221,7 @@ class SLENDER_OT_check_names(bpy.types.Operator):
 
     def execute(self, context):
         for obj in bpy.context.selected_objects:
-            ut.check_name_and_reset(obj)
+            ut.check_name_and_reset(self, obj)
         return {'FINISHED'}
 
 class SLENDER_PT_create_lod_models_panel(bpy.types.Panel):
@@ -237,24 +243,23 @@ class SLENDER_PT_create_lod_models_panel(bpy.types.Panel):
         return False
 
     def draw(self, context):
-        vars=ut.get_addon_scene_vars()
-        if vars is not None:
+        scene_vars=ut.get_addon_scene_vars()
+        if scene_vars is not None:
             layout = self.layout
-            # layout.label(text="Use selected model as...")
-            # layout.prop(vars, 'LOD_model_source', expand=True)
             layout.label(text="Create LOD from selection (shift click multi)")
-            layout.prop(vars, 'LOD_model_target', expand=True)
-            layout.operator("slender.make_lodmodels_from_selection")
+            layout.prop(scene_vars, 'LOD_model_target', expand=True)
+            layout.operator("slender.make_lod_models_from_selection")
             layout.operator("slender.make_phys_cubes_for_all")
         
 
     @classmethod
-    def register(cls):
-        pass
+    def register(cls):        
+        print(REGISTERED_CLS_FMT % (cls))
 
     @classmethod
     def unregister(cls):
-        pass
+        print(UNREGISTERED_CLS_FMT % (cls))
+
 
 class SLENDER_PT_clean_up_tools_panel(bpy.types.Panel):
     Region = "UI"
@@ -276,11 +281,13 @@ class SLENDER_PT_clean_up_tools_panel(bpy.types.Panel):
 
     @classmethod
     def register(cls):
-        pass
+        print(REGISTERED_CLS_FMT % (cls))
+
 
     @classmethod
     def unregister(cls):
-        pass
+        print(UNREGISTERED_CLS_FMT % (cls))
+
 class SLENDER_PT_general_tools_panel(bpy.types.Panel):
     Region = "UI"
 
@@ -299,11 +306,11 @@ class SLENDER_PT_general_tools_panel(bpy.types.Panel):
 
     @classmethod
     def register(cls):
-        pass
+        print(REGISTERED_CLS_FMT % (cls))
 
     @classmethod
     def unregister(cls):
-        pass
+        print(UNREGISTERED_CLS_FMT % (cls))
 
 def GetTrianglesSingleObject(object):
     mesh = object.data
@@ -326,7 +333,6 @@ def GetTrianglesForModel(item):
     # no basename found. This is not a valid SL tracked model
     if (basename == ''):
         return {0, 0, 0, 0}
-    #    highName = basename + 'HIGH'
 
     highName = ut.get_sl_LOD_name(item.name, ut.common_LOD_to_SL('high'))
     midName = ut.get_sl_LOD_name(item.name, ut.common_LOD_to_SL('med'))
@@ -345,7 +351,7 @@ def GetTrianglesForModel(item):
 
 
 def getWeights(item):
-    (_radius, LODSwitchMed, LODSwitchLow, LODSwitchLowest) = ut.getLODRadii(item)
+    (_radius, LODSwitchMed, LODSwitchLow, LODSwitchLowest) = ut.get_LOD_radii(item)
 
     MaxArea = ut.get_pref('max_area')
     MinArea = ut.get_pref('min_area')
@@ -373,18 +379,15 @@ def getWeights(item):
     return (highAreaRatio, midAreaRatio, lowAreaRatio, lowestAreaRatio)
 
 
-class SLENDER_PT_slmesh_upload_estimate(bpy.types.Panel):
+class SLENDER_PT_sl_mesh_upload_estimate(bpy.types.Panel):
     Region = "UI"
 
-    bl_idname = "SLENDER_PT_slmesh_upload_estimate"
+    bl_idname = "SLENDER_PT_sl_mesh_upload_estimate"
     bl_label = "SL Mesh Upload Estimate"
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
     bl_category = "SL"
     bl_order = 25
-
-    #    def draw_header(self, context):
-    #        util.draw_info_header(self.layout, '', msg=panel_estimate_slupload)
 
     @classmethod
     def poll(cls, context):
@@ -394,7 +397,6 @@ class SLENDER_PT_slmesh_upload_estimate(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        # scene = context.scene
 
         try:
             if len(context.selected_objects) > 1:
@@ -432,11 +434,11 @@ class SLENDER_PT_slmesh_upload_estimate(bpy.types.Panel):
         row.label(text="Radius")
         row.label(text="Weight")
         row.label(text="Cost")
-        #        (hi_tris, mid_tris, low_tris, lowest_tris)= GetTrianglesForModel(object)
+
         labels = ('High', 'Medium', 'Low', 'Lowest')
         triangles = GetTrianglesForModel(item)
         weights = getWeights(item)
-        radii = ut.getLODRadii(item)
+        radii = ut.get_LOD_radii(item)
         weighted_avg = 0
         for i in range(0, 4):
             row = col.row(align=True)
@@ -479,11 +481,10 @@ class SLENDER_PT_slmesh_upload_estimate(bpy.types.Panel):
         row.label(text="Streaming Cost")
         row.label(text="%f" % (streamingCost))
 
-
-class SLENDER_PT_slmesh_materials_info(bpy.types.Panel):
+class SLENDER_PT_sl_mesh_materials_info(bpy.types.Panel):
     Region = "UI"
 
-    bl_idname = "SLENDER_PT_slmesh_materials_info"
+    bl_idname = "SLENDER_PT_sl_mesh_materials_info"
     bl_label = "Materials Information"
     bl_space_type = "VIEW_3D"
     bl_region_type = Region
@@ -497,7 +498,6 @@ class SLENDER_PT_slmesh_materials_info(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        # scene = context.scene
 
         try:
             if len(context.selected_objects) > 1:
@@ -515,7 +515,7 @@ class SLENDER_PT_slmesh_materials_info(bpy.types.Panel):
         except (TypeError, AttributeError):
             return
 
-        mat_info = ut.getMaterialCounts(item)
+        mat_info = ut.get_material_counts(item)
 
         b = layout.box()
         b.label(text="Material Info", icon='OBJECT_DATAMODE')
@@ -529,6 +529,9 @@ class SLENDER_PT_slmesh_materials_info(bpy.types.Panel):
             row.label(text="Total Materials used: %d" % (len(mat_info)))
         else:
             row.label(text="Total Materials used: n/a")
+        self.draw_material_usage_table(item, mat_info, col)
+
+    def draw_material_usage_table(self, item, mat_info, col):
         row = col.row(align=True)
         split = row.split(factor=0.4)
         matcol = split.column()
@@ -543,13 +546,9 @@ class SLENDER_PT_slmesh_materials_info(bpy.types.Panel):
         I = r.column()
         I.row().label(text="I")
         row = col.row()
-        #        (hi_tris, mid_tris, low_tris, lowest_tris)= GetTrianglesForModel(object)
         labels = ('LOD3', 'LOD2', 'LOD1', 'LOD0')
         for mat in (mat_info):
-            #            matrow = col.row()
-            #            c=matrow.split(0.3)
             matcol.row().label(text="%s" % (mat_info[mat]['name']), icon='NONE')
-            #            c=split.split()
             for (col, LOD) in zip((H, M, L, I), labels):
                 try:
                     num = mat_info[mat][LOD]
@@ -558,7 +557,7 @@ class SLENDER_PT_slmesh_materials_info(bpy.types.Panel):
                     else:
                         col.alert = False
                     col.label(text="%d" % num)
-                except:
+                except KeyError:
                     if (ut.has_lod_model(item, LOD) == False):
                         col.label(text="-")
                     else:

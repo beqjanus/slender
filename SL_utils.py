@@ -26,10 +26,21 @@ from mathutils import Vector
 from . import Collection_utils as cu
 from . import SL_vars
 
-def check_name_and_reset(ob):
-    if(ob.name !=  ob.data.name):
+def check_name_and_reset(op, ob):
+    while(ob.name !=  ob.data.name):
 #            print("renaming"+ob.data.name+" to "+ ob.name)
-            ob.data.name = ob.name
+        ob.data.name = ob.name
+    if op is not None:
+        op.report({'INFO'}, "renaming "+ob.data.name+" to "+ ob.name)
+    
+
+def get_space(type='VIEW_3D'):
+    for area in bpy.context.screen.areas:
+        if area.type == type:
+            for space in area.spaces:
+                if space.type == type:
+                    return space
+    return None
 
 def rename_object_fully(ob, new_name):
     ob.name=new_name
@@ -54,7 +65,7 @@ def get_addon_scene_vars():
     try:
         setattr(get_addon_scene_vars, 'vars', getattr(bpy.context.scene, addon_key+'_vars' ))
         return get_addon_scene_vars.vars
-    except:
+    except AttributeError:
         return None
 
 def get_pref(name):
@@ -98,29 +109,29 @@ def convert_coords_to_scaled_int(object, vert):
     # TODO: Need to determine range
 
 
-def area_of_circle_encompassing_square(squareSize):
-    return math.pi * math.pow(math.sqrt(math.pow((squareSize / 2), 2) * 2), 2)
+def area_of_circle_encompassing_square(square_size):
+    return math.pi * math.pow(math.sqrt(math.pow((square_size / 2), 2) * 2), 2)
 
 
-def get_sl_base_name(objectName):
+def get_sl_base_name(object_name):
     try:
-        base,LOD=objectName.rsplit('_', 1)
+        base,LOD=object_name.rsplit('_', 1)
     except ValueError:
-        base = objectName
+        base = object_name
         LOD = None
 
-    if LOD is None  or LOD not in ('LOD0', 'LOD1', 'LOD2', 'LOD3', 'PHYS'):
-        return objectName
+    if LOD is None  or LOD not in ('LOD0', 'LOD1', 'LOD2', 'LOD3', 'PHYS', 'ORIG', 'HIGHPOLY'):
+        return object_name
     return base
 
-def object_exists(objectName):
-    return objectName in bpy.data.objects
+def object_exists(object_name):
+    return object_name in bpy.data.objects
 
 '''
 return the LOD name of the object
 '''
-def get_sl_LOD_name(objectName, LOD):
-    bn = get_sl_base_name(objectName)
+def get_sl_LOD_name(object_name, LOD):
+    bn = get_sl_base_name(object_name)
     if(LOD == 'LOD3'):
         #print('dealing with HIGH')
         return bn
@@ -137,33 +148,30 @@ def has_lod_models(item):
 
 '''
 Given an object, does it have a model in the given LOD
-- will strip down to basename then add the LOD extenstion before checkinbg the existnece of the target object and it's presence in the right collection
+- will strip down to basename then add the LOD extension before checking the existence of the target object and it's presence in the right collection
 '''
 def has_lod_model(item, LOD):
     this_lod = get_sl_LOD_name(item.name, LOD)
-    if object_exists(this_lod):
-        if cu.is_in_collection(bpy.data.objects[this_lod], get_collection_name_for_LOD(LOD)):
-            return True
+    if object_exists(this_lod) and cu.is_in_collection(bpy.data.objects[this_lod], get_collection_name_for_LOD(LOD)):
+        return True
     return False
 
 def has_any_lod_in_list(item, list):
     for lod in ('LOD0', 'LOD1', 'LOD2', 'LOD3'):
         if has_lod_model(item, lod):
             lod_obj = get_lod_model(item, lod)
-            if lod_obj is not None:
-                if lod_obj in list:
-                    return True
+            if lod_obj is not None and lod_obj in list:
+                return True
     return False
 
 '''
 Given an object, return the model in the given LOD
-- will strip down to basename then add the LOD extenstion before checkinbg the existnece of the target object and it's presence in the right collection
+- will strip down to basename then add the LOD extension before checking the existence of the target object and it's presence in the right collection
 '''
 def get_lod_model(item, LOD):
     this_lod = get_sl_LOD_name(item.name, LOD)
-    if object_exists(this_lod):
-        if cu.is_in_collection(bpy.data.objects[this_lod], get_collection_name_for_LOD(LOD)):
-            return this_lod
+    if object_exists(this_lod) and cu.is_in_collection(bpy.data.objects[this_lod], get_collection_name_for_LOD(LOD)):
+        return this_lod
     return None
 
 '''
@@ -193,26 +201,26 @@ def clamp(value, minval, maxval):
     return max(minval, min(maxval, value))
 
 
-def getLODRadii(object):
+def get_LOD_radii(object):
     max_distance = 512.0
     radius = get_radius_of_object(object)
-    dlowest = min(radius / 0.03, max_distance)
-    dlow = min(radius / 0.06, max_distance)
-    dmid = min(radius / 0.24, max_distance)
-    return (radius, dmid, dlow, dlowest)
+    distance_lowest = min(radius / 0.03, max_distance)
+    distance_low = min(radius / 0.06, max_distance)
+    distance_mid = min(radius / 0.24, max_distance)
+    return (radius, distance_mid, distance_low, distance_lowest)
 
 
-def float_to_U16(coord, lower, upper):
+def float_to_u16(coord, lower, upper):
     coord = clamp(coord, lower, upper)
     # convert coord to be offset within range lower->upper
-    coord -= lower  # deduct ower bound (works for -ve coords too)
+    coord -= lower  # deduct lower bound (works for -ve coords too)
     return (int(round(coord / (upper - lower)) * 65535))
 
 
-def vertex_to_SL(vertex, bb):  # array of 3 floats
+def vertex_to_sl(vertex, bb):  # array of 3 floats
     (lx, ly, lz) = bb[0]
     (ux, uy, uz) = bb[6]
-    return (float_to_U16(vertex[0], lx, ux), float_to_U16(vertex[1], ly, uy), float_to_U16(vertex[2], lz, uz))
+    return (float_to_u16(vertex[0], lx, ux), float_to_u16(vertex[1], ly, uy), float_to_u16(vertex[2], lz, uz))
 
 
 def dump(obj):
@@ -241,8 +249,6 @@ def source_getter(self):
 def source_setter(self, value):
     # print("source_setter: setting value to %d" % (value))
     self.src_value = value
-    # if (value & self.target_value):
-        #        print("overriding target_value: removing %d from %d (gives %d)"%(value, self.target_value,(self.target_value^value)))
     self.target_value ^= value
 
 def show_getter(self):
@@ -250,6 +256,7 @@ def show_getter(self):
     return self.show_value
 
 def show_setter(self, value):
+    cu.hide_all_collections()
     prefs = get_addon_preferences()
     self.show_value = value
     for count,collection_varname in enumerate(['LOD3_collection','LOD2_collection','LOD1_collection','LOD0_collection','PHYS_collection']):
@@ -257,12 +264,12 @@ def show_setter(self, value):
         show = False
         if (1 << count) & value:
             show = True
-        cu.show_collection(collname, show)
+        cu.show_slender_collection(collname, show)
     bpy.ops.object.select_all(action='DESELECT') # de-select anything to reduce confusion
     # TODO(Beq) IF we are showing just one LOD AND we have an object selected that has an instance in that LOD then select it.
 
 
-def addLODCountToMatlist(mat_list, SLMeshObject, LOD):
+def add_LOD_count_to_mat_list(mat_list, SLMeshObject, LOD):
     model = get_lod_model(SLMeshObject, LOD)
     mesh = model.data
     if len(model.material_slots)>0:
@@ -271,7 +278,7 @@ def addLODCountToMatlist(mat_list, SLMeshObject, LOD):
             mat_name = model.material_slots[mat_index].name
             try:
                 mat_list[mat_name][LOD] += 1
-            # if we've seen this before inrease the reference count
+            # if we've seen this before increase the reference count
             except (KeyError):
                 try:
                     # first time we've seen this LOD?
@@ -282,7 +289,7 @@ def addLODCountToMatlist(mat_list, SLMeshObject, LOD):
     return mat_list
 
 
-def getMaterialCounts(SLMeshObject):
+def get_material_counts(SLMeshObject):
     mat_list = {}  # we will return a list of materials and the poly counts for each
     # matList[0].['name'] = name
     # matlist[0].['HIGH'] = num polys using this in high lod model.
@@ -290,10 +297,7 @@ def getMaterialCounts(SLMeshObject):
         return None
     else:
         for LOD in get_mesh_lods_defined(SLMeshObject):
-            # print("Counting %s" % (LOD))
-            # print(mat_list)
-            mat_list = addLODCountToMatlist(mat_list, SLMeshObject, LOD)
-    #    print(mat_list)
+            mat_list = add_LOD_count_to_mat_list(mat_list, SLMeshObject, LOD)
     return mat_list
 
 def common_LOD_to_SL(common_LOD):
@@ -312,21 +316,18 @@ def get_suffix_for_LOD(lod):
 
 '''
 place_objects_on_collection makes the list of objects passed available on the given collection. 
-if the option paramter move is set to true then the objects will vanish from other collections. 
+if the option parameter move is set to true then the objects will vanish from other collections. 
 '''
 
 def place_objects_by_LOD(objects, LOD_level, move=False):
-    # objects = bpy.context.selected_objects
     for ob in objects:
         base_name = get_sl_base_name(ob.name) # get the tail stripped object name
         lod_name = get_suffix_for_LOD(ob.name) # and the tail
         ''' move object to target collection, renaming in the process.'''
         collection_name = get_collection_name_for_LOD(LOD_level)
         required_suffix = get_suffix_for_LOD(LOD_level)
-        if lod_name != required_suffix:
-            # check if an object already exists with the target name and skip if it does.
-            if has_lod_model(ob.name, required_suffix) is None:
-                rename_object_fully(ob, base_name+required_suffix)
+        if lod_name != required_suffix and has_lod_model(ob.name, required_suffix) is None:
+            rename_object_fully(ob, base_name+required_suffix)
         #TODO: need error handling for cases where models already exist
         if move:
             cu.move_to_collection(ob,collection_name)               

@@ -177,7 +177,6 @@ class SLenderAddonPreferences(AddonPreferences):
                       (_("Imposter LOD Collection:"), 'LOD0_collection'),
                       (_("Physics Collection     :"), 'PHYS_collection')
                       ]
-            #            split=box.split()
             self.draw_simple_prefs_list(box, fields)
             # layout for Export/Naming prefs
             box = layout.box()
@@ -199,7 +198,6 @@ class SLenderAddonPreferences(AddonPreferences):
             self.draw_simple_prefs_list(box, fields)
 
         elif self.prefs_tabs == 'links':
-#            wm = bpy.context.window_manager
             layout.label(text='Blog')
             layout.operator("wm.url_open",
                             text="My Blog").url = "https://beqsother.blogspot.co.uk"
@@ -211,7 +209,7 @@ class SLenderAddonPreferences(AddonPreferences):
 
     @classmethod
     def unregister(cls):
-        pass
+        print("unregistered %s" % (cls))
 
 class OBJECT_OT_slender_addon_prefs(bpy.types.Operator):
     '''Display preferences for Slender AddOn'''
@@ -234,13 +232,8 @@ class OBJECT_OT_slender_addon_prefs(bpy.types.Operator):
     @classmethod
     def register(cls):
         print("Registered %s" % (cls))
-        # try:
-        #     bpy.utils.register_class(SLToolsSceneMgrProp)
-        # except:
-        #     pass
-#        bpy.types.Scene.slender_scenemgr : CollectionProperty(type=SLENDER_SceneMgrProp)
-#        bpy.types.Scene.slender_index : IntProperty()
 
     @classmethod
     def unregister(cls):
-        pass
+        print("Unregistered %s" % (cls))
+    
